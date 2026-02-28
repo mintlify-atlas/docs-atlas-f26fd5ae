@@ -1,0 +1,102 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "Payaza API Client for PHP",
+  "projectDescription": "PHP client library for integrating with the Payaza payment API",
+  "theme": "palm",
+  "primaryColor": "#2563eb",
+  "lightColor": "#60a5fa",
+  "darkColor": "#1e40af",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "core-concepts/configuration",
+              "core-concepts/authentication",
+              "core-concepts/error-handling"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/creating-payouts",
+              "guides/checking-transaction-status",
+              "guides/implementing-interfaces"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Client",
+            "pages": [
+              "api-reference/client"
+            ]
+          },
+          {
+            "group": "Interfaces",
+            "pages": [
+              "api-reference/interfaces/config-interface",
+              "api-reference/interfaces/transaction-interface"
+            ]
+          },
+          {
+            "group": "Enums",
+            "pages": [
+              "api-reference/enums/error-code-enum",
+              "api-reference/enums/transaction-status-enum"
+            ]
+          },
+          {
+            "group": "Responses",
+            "pages": [
+              "api-reference/responses/payout-response",
+              "api-reference/responses/payout-status-response"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Resources",
+        "groups": [
+          {
+            "group": "Resources",
+            "pages": [
+              "resources/changelog"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Create payouts to Nigerian bank accounts",
+    "Check transaction status",
+    "Built-in error handling with enums",
+    "Type-safe response objects",
+    "PSR-4 autoloading support"
+  ],
+  "publicApiSurface": [
+    "Client::payout()",
+    "Client::payoutStatus()",
+    "ConfigInterface",
+    "TransactionInterface",
+    "ErrorCodeEnum",
+    "TransactionStatusEnum",
+    "PayoutResponse",
+    "PayoutStatusResponse"
+  ]
+}
