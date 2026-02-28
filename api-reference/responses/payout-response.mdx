@@ -1,0 +1,199 @@
+---
+title: PayoutResponse
+description: Response object returned when initiating a payout
+---
+
+The `PayoutResponse` class represents the API response returned when initiating a payout transaction using the `Client::payout()` method.
+
+## Class Definition
+
+```php
+namespace BrokeYourBike\Payaza\Responses;
+
+use Spatie\DataTransferObject\Attributes\MapFrom;
+use BrokeYourBike\DataTransferObject\JsonResponse;
+
+class PayoutResponse extends JsonResponse
+{
+    public ?string $response_code;
+    public ?string $response_message;
+    #[MapFrom('response_content.response_status')]
+    public ?string $transaction_status;
+}
+```
+
+## Properties
+
+### response_code
+
+The response code indicating the result of the payout request.
+
+```php
+public ?string $response_code
+```
+
+<ResponseField name="response_code" type="string|null">
+  Response code from the API. Common values include `'00'` for success or `'500'` for failure. See [ErrorCodeEnum](/api-reference/enums/error-code-enum) for standard codes.
+</ResponseField>
+
+### response_message
+
+A human-readable message describing the response.
+
+```php
+public ?string $response_message
+```
+
+<ResponseField name="response_message" type="string|null">
+  Descriptive message from the API explaining the result of the payout request.
+</ResponseField>
+
+### transaction_status
+
+The current status of the transaction.
+
+```php
+public ?string $transaction_status
+```
+
+<ResponseField name="transaction_status" type="string|null">
+  The transaction status value. Common values include `'TRANSACTION_INITIATED'`, `'ESCROW_SUCCESS'`, or `'NIP_PENDING'`. See [TransactionStatusEnum](/api-reference/enums/transaction-status-enum) for all possible statuses.
+  
+  This property is mapped from the API field `response_content.response_status`.
+</ResponseField>
+
+## Field Mapping
+
+The `transaction_status` property uses the `MapFrom` attribute to map from the nested API response field:
+
+```
+API Response:
+{
+  "response_code": "00",
+  "response_message": "Transaction initiated",
+  "response_content": {
+    "response_status": "TRANSACTION_INITIATED"
+  }
+}
+
+PayoutResponse:
+{
+  response_code: "00",
+  response_message: "Transaction initiated",
+  transaction_status: "TRANSACTION_INITIATED"
+}
+```
+
+## Usage Examples
+
+### Basic Usage
+
+```php
+use BrokeYourBike\Payaza\Client;
+use BrokeYourBike\Payaza\Enums\ErrorCodeEnum;
+
+$transaction = new YourTransaction(
+    reference: 'TXN-123456',
+    amount: 5000.00,
+    bankAccount: '0123456789',
+    bankCode: '058',
+    recipientName: 'John Doe'
+);
+
+$response = $client->payout($transaction);
+
+if ($response->response_code === ErrorCodeEnum::OK->value) {
+    echo "Payout initiated successfully\n";
+    echo "Status: {$response->transaction_status}\n";
+    echo "Message: {$response->response_message}\n";
+} else {
+    echo "Payout failed: {$response->response_message}\n";
+}
+```
+
+### Checking Response Status
+
+```php
+use BrokeYourBike\Payaza\Enums\ErrorCodeEnum;
+use BrokeYourBike\Payaza\Enums\TransactionStatusEnum;
+
+$response = $client->payout($transaction);
+
+// Check if request was accepted
+if ($response->response_code === ErrorCodeEnum::OK->value) {
+    // Check transaction status
+    if ($response->transaction_status === TransactionStatusEnum::TRANSACTION_INITIATED->value) {
+        // Queue for status polling
+        queueStatusCheck($transaction->getReference());
+    }
+}
+```
+
+### Error Handling
+
+```php
+$response = $client->payout($transaction);
+
+if ($response->response_code !== ErrorCodeEnum::OK->value) {
+    logger()->error('Payout failed', [
+        'reference' => $transaction->getReference(),
+        'code' => $response->response_code,
+        'message' => $response->response_message,
+    ]);
+    
+    throw new PayoutException(
+        "Payout failed: {$response->response_message}",
+        (int) $response->response_code
+    );
+}
+```
+
+### Logging Response
+
+```php
+$response = $client->payout($transaction);
+
+logger()->info('Payout response received', [
+    'reference' => $transaction->getReference(),
+    'response_code' => $response->response_code,
+    'response_message' => $response->response_message,
+    'transaction_status' => $response->transaction_status,
+]);
+```
+
+## Inheritance
+
+The `PayoutResponse` extends `BrokeYourBike\DataTransferObject\JsonResponse`, which provides:
+
+- Automatic JSON parsing from PSR-7 response objects
+- Type safety for property access
+- Nullable property handling
+
+## Next Steps
+
+After receiving a payout response, you should:
+
+1. Check the `response_code` to verify the request was accepted
+2. Store the transaction reference for future status checks
+3. Poll the transaction status using `Client::payoutStatus()` to track completion
+
+```php
+use BrokeYourBike\Payaza\Enums\ErrorCodeEnum;
+
+$payoutResponse = $client->payout($transaction);
+
+if ($payoutResponse->response_code === ErrorCodeEnum::OK->value) {
+    // Poll for status updates
+    $statusResponse = $client->payoutStatus($transaction->getReference());
+    
+    // Check if transaction is complete
+    // See TransactionStatusEnum for status values
+}
+```
+
+## Related
+
+- [Client](/api-reference/client) - API client with payout() method that returns this response
+- [PayoutStatusResponse](/api-reference/responses/payout-status-response) - Response for status checks
+- [ErrorCodeEnum](/api-reference/enums/error-code-enum) - Response code values
+- [TransactionStatusEnum](/api-reference/enums/transaction-status-enum) - Transaction status values

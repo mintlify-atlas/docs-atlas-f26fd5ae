@@ -1,0 +1,233 @@
+---
+title: TransactionStatusEnum
+description: Transaction status enumeration for tracking payout lifecycle
+---
+
+The `TransactionStatusEnum` defines the possible states of a payout transaction throughout its lifecycle, from initiation to completion or failure.
+
+## Enum Definition
+
+```php
+namespace BrokeYourBike\Payaza\Enums;
+
+enum TransactionStatusEnum: string
+{
+    case TRANSACTION_INITIATED = 'TRANSACTION_INITIATED';
+    case ESCROW_SUCCESS = 'ESCROW_SUCCESS';
+    case NIP_SUCCESS = 'NIP_SUCCESS';
+    case NIP_FAILURE = 'NIP_FAILURE';
+    case NIP_PENDING = 'NIP_PENDING';
+    case NIP_REVERSAL_SUCCESS = 'NIP_REVERSAL_SUCCESS';
+}
+```
+
+## Status Cases
+
+### TRANSACTION_INITIATED
+
+Transaction has been received and queued for processing.
+
+```php
+TransactionStatusEnum::TRANSACTION_INITIATED
+```
+
+<ResponseField name="value" type="string">
+  `'TRANSACTION_INITIATED'`
+</ResponseField>
+
+This is the initial status when a payout request is first submitted to the Payaza API. The transaction has been accepted and is queued for processing.
+
+### ESCROW_SUCCESS
+
+Amount has been deducted, but transaction is being processed by the bank.
+
+```php
+TransactionStatusEnum::ESCROW_SUCCESS
+```
+
+<ResponseField name="value" type="string">
+  `'ESCROW_SUCCESS'`
+</ResponseField>
+
+The payout amount has been deducted from your account and is being processed by the bank. The transaction can still be reversed due to network problems or other issues during bank processing.
+
+### NIP_SUCCESS
+
+Transaction completed successfully.
+
+```php
+TransactionStatusEnum::NIP_SUCCESS
+```
+
+<ResponseField name="value" type="string">
+  `'NIP_SUCCESS'`
+</ResponseField>
+
+The transaction has been successfully completed. The funds have been credited to the recipient's bank account.
+
+### NIP_FAILURE
+
+Transaction has failed.
+
+```php
+TransactionStatusEnum::NIP_FAILURE
+```
+
+<ResponseField name="value" type="string">
+  `'NIP_FAILURE'`
+</ResponseField>
+
+The transaction has failed. Check the response message for details about why the transaction failed.
+
+### NIP_PENDING
+
+Transaction is still in progress.
+
+```php
+TransactionStatusEnum::NIP_PENDING
+```
+
+<ResponseField name="value" type="string">
+  `'NIP_PENDING'`
+</ResponseField>
+
+The transaction is still being processed. Continue to poll the status endpoint to get updates.
+
+### NIP_REVERSAL_SUCCESS
+
+Transaction failed at the bank and has been reversed.
+
+```php
+TransactionStatusEnum::NIP_REVERSAL_SUCCESS
+```
+
+<ResponseField name="value" type="string">
+  `'NIP_REVERSAL_SUCCESS'`
+</ResponseField>
+
+The transaction failed at the bank level and has been automatically reversed. The funds have been credited back to your account.
+
+## Transaction Lifecycle
+
+A typical payout transaction flows through these statuses:
+
+```
+TRANSACTION_INITIATED
+    ↓
+ESCROW_SUCCESS
+    ↓
+NIP_PENDING
+    ↓
+    ├─→ NIP_SUCCESS (successful)
+    ├─→ NIP_FAILURE (failed)
+    └─→ NIP_REVERSAL_SUCCESS (failed and reversed)
+```
+
+## Usage Examples
+
+### Checking Transaction Status
+
+```php
+use BrokeYourBike\Payaza\Client;
+use BrokeYourBike\Payaza\Enums\TransactionStatusEnum;
+
+$response = $client->payoutStatus('TXN-123456');
+
+if ($response->transaction_status === TransactionStatusEnum::NIP_SUCCESS->value) {
+    echo "Payment completed successfully";
+} elseif ($response->transaction_status === TransactionStatusEnum::NIP_PENDING->value) {
+    echo "Payment is still processing";
+} elseif ($response->transaction_status === TransactionStatusEnum::NIP_FAILURE->value) {
+    echo "Payment failed";
+}
+```
+
+### Status Polling
+
+```php
+use BrokeYourBike\Payaza\Enums\TransactionStatusEnum;
+
+function pollTransactionStatus(Client $client, string $reference, int $maxAttempts = 10): bool
+{
+    $pendingStatuses = [
+        TransactionStatusEnum::TRANSACTION_INITIATED->value,
+        TransactionStatusEnum::ESCROW_SUCCESS->value,
+        TransactionStatusEnum::NIP_PENDING->value,
+    ];
+
+    for ($i = 0; $i < $maxAttempts; $i++) {
+        $response = $client->payoutStatus($reference);
+        
+        if ($response->transaction_status === TransactionStatusEnum::NIP_SUCCESS->value) {
+            return true;
+        }
+        
+        if (!in_array($response->transaction_status, $pendingStatuses)) {
+            return false; // Failed or reversed
+        }
+        
+        sleep(5); // Wait 5 seconds before next poll
+    }
+    
+    return false; // Timeout
+}
+```
+
+### Categorizing Statuses
+
+```php
+use BrokeYourBike\Payaza\Enums\TransactionStatusEnum;
+
+function isTransactionComplete(string $status): bool
+{
+    return in_array($status, [
+        TransactionStatusEnum::NIP_SUCCESS->value,
+        TransactionStatusEnum::NIP_FAILURE->value,
+        TransactionStatusEnum::NIP_REVERSAL_SUCCESS->value,
+    ]);
+}
+
+function isTransactionSuccessful(string $status): bool
+{
+    return $status === TransactionStatusEnum::NIP_SUCCESS->value;
+}
+
+function isTransactionPending(string $status): bool
+{
+    return in_array($status, [
+        TransactionStatusEnum::TRANSACTION_INITIATED->value,
+        TransactionStatusEnum::ESCROW_SUCCESS->value,
+        TransactionStatusEnum::NIP_PENDING->value,
+    ]);
+}
+```
+
+### Using Match Expression
+
+```php
+use BrokeYourBike\Payaza\Enums\TransactionStatusEnum;
+
+$action = match ($response->transaction_status) {
+    TransactionStatusEnum::NIP_SUCCESS->value => 'complete',
+    TransactionStatusEnum::NIP_FAILURE->value => 'fail',
+    TransactionStatusEnum::NIP_REVERSAL_SUCCESS->value => 'reverse',
+    TransactionStatusEnum::TRANSACTION_INITIATED->value,
+    TransactionStatusEnum::ESCROW_SUCCESS->value,
+    TransactionStatusEnum::NIP_PENDING->value => 'wait',
+    default => 'unknown',
+};
+```
+
+## Best Practices
+
+1. Always poll for status updates on pending transactions
+2. Implement retry logic with exponential backoff for status checks
+3. Handle all possible status values, including future additions
+4. Log status changes for audit trails
+5. Consider `ESCROW_SUCCESS` as a pending state that requires monitoring
+
+## Related
+
+- [PayoutStatusResponse](/api-reference/responses/payout-status-response) - Contains transaction_status field
+- [PayoutResponse](/api-reference/responses/payout-response) - Initial response with transaction_status
+- [Client](/api-reference/client) - API client with payoutStatus() method for checking transaction status

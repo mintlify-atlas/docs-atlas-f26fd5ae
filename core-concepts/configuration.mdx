@@ -1,0 +1,197 @@
+---
+title: Configuration
+description: Learn how to configure the Payaza API Client for PHP with all required settings
+---
+
+The Payaza API Client requires a configuration object that implements the `ConfigInterface`. This interface defines all the necessary credentials and settings needed to communicate with the Payaza API.
+
+## ConfigInterface Overview
+
+The configuration interface is located at `src/Interfaces/ConfigInterface.php:12` and requires implementation of eight essential methods:
+
+<ParamField path="getUrl()" type="string" required>
+  The base URL for the Payaza API endpoint. This determines which Payaza environment (sandbox or production) your client will connect to.
+</ParamField>
+
+<ParamField path="getToken()" type="string" required>
+  Your Payaza API authentication token. This token will be base64-encoded and used in the Authorization header for all API requests.
+</ParamField>
+
+<ParamField path="getTenantId()" type="string" required>
+  Your Payaza tenant identifier. This is sent as the `X-TenantID` header with every API request to identify your organization.
+</ParamField>
+
+<ParamField path="getTransactionPin()" type="string" required>
+  Your transaction PIN required for authorizing payout operations. This is included in the payout request payload.
+</ParamField>
+
+<ParamField path="getAccountReference()" type="string" required>
+  Your Payaza account reference identifier. This references the account from which payouts will be debited.
+</ParamField>
+
+<ParamField path="getSenderName()" type="string" required>
+  The name of the sender to be included in payout transactions. This information is sent to beneficiaries.
+</ParamField>
+
+<ParamField path="getSenderPhone()" type="string" required>
+  The phone number of the sender to be included in payout transactions.
+</ParamField>
+
+<ParamField path="getSenderAddress()" type="string" required>
+  The address of the sender to be included in payout transactions.
+</ParamField>
+
+## Implementation Example
+
+Here's a complete example of implementing the `ConfigInterface`:
+
+```php
+use BrokeYourBike\Payaza\Interfaces\ConfigInterface;
+
+class PayazaConfig implements ConfigInterface
+{
+    private string $url;
+    private string $token;
+    private string $tenantId;
+    private string $transactionPin;
+    private string $accountReference;
+    private string $senderName;
+    private string $senderPhone;
+    private string $senderAddress;
+
+    public function __construct(
+        string $url,
+        string $token,
+        string $tenantId,
+        string $transactionPin,
+        string $accountReference,
+        string $senderName,
+        string $senderPhone,
+        string $senderAddress
+    ) {
+        $this->url = $url;
+        $this->token = $token;
+        $this->tenantId = $tenantId;
+        $this->transactionPin = $transactionPin;
+        $this->accountReference = $accountReference;
+        $this->senderName = $senderName;
+        $this->senderPhone = $senderPhone;
+        $this->senderAddress = $senderAddress;
+    }
+
+    public function getUrl(): string
+    {
+        return $this->url;
+    }
+
+    public function getToken(): string
+    {
+        return $this->token;
+    }
+
+    public function getTenantId(): string
+    {
+        return $this->tenantId;
+    }
+
+    public function getTransactionPin(): string
+    {
+        return $this->transactionPin;
+    }
+
+    public function getAccountReference(): string
+    {
+        return $this->accountReference;
+    }
+
+    public function getSenderName(): string
+    {
+        return $this->senderName;
+    }
+
+    public function getSenderPhone(): string
+    {
+        return $this->senderPhone;
+    }
+
+    public function getSenderAddress(): string
+    {
+        return $this->senderAddress;
+    }
+}
+```
+
+## Using Your Configuration
+
+Once you've implemented the configuration interface, pass it to the Client constructor:
+
+```php
+use BrokeYourBike\Payaza\Client;
+use GuzzleHttp\Client as GuzzleClient;
+
+$config = new PayazaConfig(
+    url: 'https://api.payaza.africa/',
+    token: 'your-api-token',
+    tenantId: 'your-tenant-id',
+    transactionPin: 'your-transaction-pin',
+    accountReference: 'your-account-reference',
+    senderName: 'ACME Corporation',
+    senderPhone: '+2348012345678',
+    senderAddress: '123 Business Street, Lagos, Nigeria'
+);
+
+$httpClient = new GuzzleClient();
+$payazaClient = new Client($config, $httpClient);
+```
+
+<Note>
+  The Client constructor (located at `src/Client.php:32`) requires both a `ConfigInterface` implementation and a Guzzle `ClientInterface` instance.
+</Note>
+
+## Environment-Based Configuration
+
+<Tip>
+  Store sensitive configuration values like tokens and PINs in environment variables rather than hardcoding them:
+
+  ```php
+  $config = new PayazaConfig(
+      url: getenv('PAYAZA_URL'),
+      token: getenv('PAYAZA_TOKEN'),
+      tenantId: getenv('PAYAZA_TENANT_ID'),
+      transactionPin: getenv('PAYAZA_TRANSACTION_PIN'),
+      accountReference: getenv('PAYAZA_ACCOUNT_REFERENCE'),
+      senderName: getenv('PAYAZA_SENDER_NAME'),
+      senderPhone: getenv('PAYAZA_SENDER_PHONE'),
+      senderAddress: getenv('PAYAZA_SENDER_ADDRESS')
+  );
+  ```
+</Tip>
+
+## Sandbox vs Production
+
+<Accordion title="Switching Between Environments">
+  The environment is controlled by the URL you provide in your configuration:
+
+  - **Sandbox**: Use Payaza's sandbox URL for testing
+  - **Production**: Use Payaza's production URL for live transactions
+
+  ```php
+  // Sandbox
+  $sandboxConfig = new PayazaConfig(
+      url: 'https://sandbox-api.payaza.africa/',
+      // ... other config
+  );
+
+  // Production
+  $productionConfig = new PayazaConfig(
+      url: 'https://api.payaza.africa/',
+      // ... other config
+  );
+  ```
+
+  Make sure you use the appropriate credentials for each environment.
+</Accordion>
+
+<Warning>
+  All eight configuration methods are required. The client will fail if any method is not implemented or returns an empty value.
+</Warning>

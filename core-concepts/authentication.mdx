@@ -1,0 +1,185 @@
+---
+title: Authentication
+description: Understand how authentication works with the Payaza API Client for PHP
+---
+
+The Payaza API uses a combination of token-based authentication and tenant identification to secure API requests. The client handles authentication automatically using the credentials provided in your configuration.
+
+## Authentication Mechanism
+
+Every request to the Payaza API requires two authentication components:
+
+1. **Authorization Header**: A base64-encoded token with the "Payaza" scheme
+2. **Tenant ID Header**: Your organization's tenant identifier
+
+## How Authentication Works
+
+The client automatically constructs authentication headers for each API request. Here's how it works internally:
+
+### Payout Requests
+
+When you call `payout()` (see `src/Client.php:43`), the client:
+
+```php
+$tokenEncoded = base64_encode($this->config->getToken());
+
+$options = [
+    \GuzzleHttp\RequestOptions::HEADERS => [
+        'Accept' => 'application/json',
+        'Authorization' => "Payaza {$tokenEncoded}",
+        'X-TenantID' => $this->config->getTenantId(),
+    ],
+    // ... additional request data
+];
+```
+
+### Status Check Requests
+
+When you call `payoutStatus()` (see `src/Client.php:87`), the same authentication pattern is used:
+
+```php
+$tokenEncoded = base64_encode($this->config->getToken());
+
+$options = [
+    \GuzzleHttp\RequestOptions::HEADERS => [
+        'Accept' => 'application/json',
+        'Authorization' => "Payaza {$tokenEncoded}",
+        'X-TenantID' => $this->config->getTenantId(),
+    ],
+];
+```
+
+<Note>
+  The authentication process is identical for all API endpoints. The client consistently applies the same authentication headers.
+</Note>
+
+## Authorization Header Format
+
+The Authorization header follows this specific format:
+
+<ParamField path="Authorization" type="string" required>
+  **Format**: `Payaza {base64_encoded_token}`
+  
+  The token from your configuration is base64-encoded and prefixed with the scheme "Payaza" followed by a space.
+</ParamField>
+
+### Example
+
+If your token is `my-secret-token-123`, the header will be:
+
+```
+Authorization: Payaza bXktc2VjcmV0LXRva2VuLTEyMw==
+```
+
+## Tenant ID Requirement
+
+<ParamField path="X-TenantID" type="string" required>
+  Your Payaza tenant identifier sent as a custom header. This identifies your organization in the Payaza system.
+</ParamField>
+
+The tenant ID is sent with every request using the `X-TenantID` header:
+
+```
+X-TenantID: your-tenant-id-here
+```
+
+<Warning>
+  Both the Authorization header and X-TenantID header are required for all API requests. Missing either will result in authentication failure.
+</Warning>
+
+## Transaction PIN
+
+In addition to request-level authentication, payout operations require a transaction PIN for authorization. This PIN is included in the request payload (see `src/Client.php:57`):
+
+```php
+'service_payload' => [
+    'transaction_pin' => $this->config->getTransactionPin(),
+    // ... other payout data
+]
+```
+
+<Tip>
+  The transaction PIN is separate from the authentication token. It provides an additional layer of security for financial operations.
+</Tip>
+
+## Complete Authentication Flow
+
+Here's the complete flow when you make a payout request:
+
+<Accordion title="Step-by-Step Authentication Process">
+  1. **Client Initialization**: You create a client with your configuration containing the token and tenant ID
+  
+  2. **Token Encoding**: When you call `payout()`, the client base64-encodes your token:
+     ```php
+     $tokenEncoded = base64_encode($this->config->getToken());
+     ```
+  
+  3. **Header Construction**: The client builds the authentication headers:
+     ```php
+     'Authorization' => "Payaza {$tokenEncoded}",
+     'X-TenantID' => $this->config->getTenantId(),
+     ```
+  
+  4. **Request Payload**: The transaction PIN is added to the request body:
+     ```php
+     'transaction_pin' => $this->config->getTransactionPin(),
+     ```
+  
+  5. **API Request**: The complete authenticated request is sent to Payaza
+  
+  6. **Response**: Payaza validates all credentials and processes the request
+</Accordion>
+
+## Security Best Practices
+
+<Tip>
+  **Keep Your Credentials Secure**
+  
+  - Never hardcode tokens, tenant IDs, or transaction PINs in your source code
+  - Use environment variables or secure configuration management
+  - Rotate your API tokens regularly
+  - Use different credentials for sandbox and production environments
+  - Never commit credentials to version control
+</Tip>
+
+## Example: Complete Authentication Setup
+
+```php
+use BrokeYourBike\Payaza\Client;
+use GuzzleHttp\Client as GuzzleClient;
+
+// Load credentials from environment
+$config = new PayazaConfig(
+    url: getenv('PAYAZA_URL'),
+    token: getenv('PAYAZA_TOKEN'),           // Used for Authorization header
+    tenantId: getenv('PAYAZA_TENANT_ID'),     // Used for X-TenantID header
+    transactionPin: getenv('PAYAZA_TX_PIN'),  // Used in payout payload
+    // ... other config
+);
+
+// Create authenticated client
+$client = new Client($config, new GuzzleClient());
+
+// All requests are now automatically authenticated
+$response = $client->payout($transaction);
+```
+
+<Note>
+  You never need to manually set authentication headers. The client handles all authentication automatically using your configuration.
+</Note>
+
+## Troubleshooting Authentication Issues
+
+<Warning>
+  **Common Authentication Errors**
+  
+  - **401 Unauthorized**: Invalid token or tenant ID
+  - **403 Forbidden**: Valid credentials but insufficient permissions
+  - **Invalid Transaction PIN**: Incorrect PIN in payout request
+  
+  Verify that:
+  - Your token is correct and not expired
+  - Your tenant ID matches your Payaza account
+  - Your transaction PIN is correct
+  - You're using credentials for the correct environment (sandbox vs production)
+</Warning>

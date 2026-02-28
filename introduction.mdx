@@ -1,0 +1,136 @@
+---
+title: Introduction
+description: A modern PHP client library for integrating Payaza payment services into your application
+---
+
+# Payaza API Client for PHP
+
+The Payaza API Client is a modern, type-safe PHP library that enables seamless integration with Payaza's payment infrastructure. Built for PHP 8.1+, it provides a robust solution for processing payouts to Nigerian bank accounts with comprehensive error handling and transaction tracking.
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Get started with Composer installation and setup requirements
+  </Card>
+  <Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+    Build your first payout integration in minutes
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/client">
+    Explore detailed API documentation and method signatures
+  </Card>
+  <Card title="Configuration" icon="gear" href="/core-concepts/configuration">
+    Learn how to configure the client for your environment
+  </Card>
+</CardGroup>
+
+## What You Can Build
+
+The Payaza API Client enables you to:
+
+- **Process Payouts**: Send money to Nigerian bank accounts using NUBAN transfers
+- **Track Transactions**: Check real-time status of payout transactions
+- **Handle Errors**: Leverage built-in enums for response codes and transaction statuses
+- **Type Safety**: Benefit from strict typing with interfaces and response objects
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Type-Safe Responses" icon="shield-check">
+    Built with strict typing using Data Transfer Objects and PHP 8.1+ enums for reliable error handling
+  </Card>
+  <Card title="PSR-4 Autoloading" icon="boxes-stacked">
+    Standard PSR-4 autoloading makes integration with modern PHP frameworks seamless
+  </Card>
+  <Card title="Interface-Driven" icon="puzzle-piece">
+    Implements ConfigInterface and TransactionInterface for flexible, testable code architecture
+  </Card>
+  <Card title="HTTP Client Agnostic" icon="plug">
+    Works with any PSR-18 compatible HTTP client, using Guzzle by default
+  </Card>
+</CardGroup>
+
+## Quick Example
+
+Here's a simple example of processing a payout:
+
+```php
+use BrokeYourBike\Payaza\Client;
+use BrokeYourBike\Payaza\Interfaces\ConfigInterface;
+use BrokeYourBike\Payaza\Interfaces\TransactionInterface;
+
+// Initialize the client with your config and HTTP client
+$client = new Client($config, $httpClient);
+
+// Process a payout
+$response = $client->payout($transaction);
+
+if ($response->response_code === '00') {
+    echo "Payout initiated: {$response->transaction_status}";
+}
+
+// Check transaction status
+$status = $client->payoutStatus($transaction->getReference());
+echo "Transaction status: {$status->transaction_status}";
+```
+
+<Note>
+  This library requires PHP 8.1 or higher and uses modern PHP features including enums, typed properties, and constructor property promotion.
+</Note>
+
+## Transaction Workflow
+
+<Steps>
+  <Step title="Initialize Client">
+    Create a Client instance with your configuration implementing ConfigInterface and a Guzzle HTTP client
+  </Step>
+  
+  <Step title="Create Transaction">
+    Prepare a transaction object implementing TransactionInterface with recipient details
+  </Step>
+  
+  <Step title="Process Payout">
+    Call the `payout()` method to initiate the transfer to the recipient's bank account
+  </Step>
+  
+  <Step title="Monitor Status">
+    Use `payoutStatus()` to track the transaction through various states until completion
+  </Step>
+</Steps>
+
+## Response Codes
+
+The library includes built-in enums for handling API responses:
+
+| Code | Status | Description |
+|------|--------|-------------|
+| `00` | OK | Request processed successfully |
+| `200` | SUCCESSFUL | Transaction completed |
+| `500` | FAILED | Transaction failed |
+
+## Transaction Statuses
+
+Transactions progress through several states:
+
+- **TRANSACTION_INITIATED**: Transaction received and queued for processing
+- **ESCROW_SUCCESS**: Amount deducted, awaiting bank confirmation
+- **NIP_SUCCESS**: Transaction completed successfully
+- **NIP_FAILURE**: Transaction failed
+- **NIP_PENDING**: Transaction still processing
+- **NIP_REVERSAL_SUCCESS**: Failed transaction reversed and refunded
+
+<Tip>
+  Use the `TransactionStatusEnum` and `ErrorCodeEnum` classes for type-safe status checking instead of string comparisons.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Install the Library" icon="download" href="/installation">
+    Set up Composer and install dependencies
+  </Card>
+  <Card title="Follow the Quickstart" icon="play" href="/quickstart">
+    Build your first integration step-by-step
+  </Card>
+  <Card title="Explore Examples" icon="book" href="/guides/creating-payouts">
+    See complete code examples and use cases
+  </Card>
+</CardGroup>

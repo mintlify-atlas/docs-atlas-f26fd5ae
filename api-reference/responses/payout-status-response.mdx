@@ -1,0 +1,276 @@
+---
+title: PayoutStatusResponse
+description: Response object returned when checking payout transaction status
+---
+
+The `PayoutStatusResponse` class represents the API response returned when checking the status of a payout transaction using the `Client::payoutStatus()` method.
+
+## Class Definition
+
+```php
+namespace BrokeYourBike\Payaza\Responses;
+
+use Spatie\DataTransferObject\Attributes\MapFrom;
+use BrokeYourBike\DataTransferObject\JsonResponse;
+
+class PayoutStatusResponse extends JsonResponse
+{
+    #[MapFrom('data.responseCode')]
+    public ?string $response_code;
+
+    #[MapFrom('data.responseMessage')]
+    public ?string $response_message;
+    
+    #[MapFrom('data.transactionStatus')]
+    public ?string $transaction_status;
+}
+```
+
+## Properties
+
+### response_code
+
+The response code indicating the result of the status query.
+
+```php
+public ?string $response_code
+```
+
+<ResponseField name="response_code" type="string|null">
+  Response code from the API. Common values include `'00'` for success or `'500'` for failure. See [ErrorCodeEnum](/api-reference/enums/error-code-enum) for standard codes.
+  
+  This property is mapped from the API field `data.responseCode`.
+</ResponseField>
+
+### response_message
+
+A human-readable message describing the status.
+
+```php
+public ?string $response_message
+```
+
+<ResponseField name="response_message" type="string|null">
+  Descriptive message from the API explaining the current status of the transaction.
+  
+  This property is mapped from the API field `data.responseMessage`.
+</ResponseField>
+
+### transaction_status
+
+The current status of the transaction.
+
+```php
+public ?string $transaction_status
+```
+
+<ResponseField name="transaction_status" type="string|null">
+  The current transaction status. Values include `'TRANSACTION_INITIATED'`, `'ESCROW_SUCCESS'`, `'NIP_PENDING'`, `'NIP_SUCCESS'`, `'NIP_FAILURE'`, or `'NIP_REVERSAL_SUCCESS'`. See [TransactionStatusEnum](/api-reference/enums/transaction-status-enum) for all possible statuses and their meanings.
+  
+  This property is mapped from the API field `data.transactionStatus`.
+</ResponseField>
+
+## Field Mapping
+
+All properties use the `MapFrom` attribute to map from nested API response fields:
+
+```
+API Response:
+{
+  "data": {
+    "responseCode": "00",
+    "responseMessage": "Transaction successful",
+    "transactionStatus": "NIP_SUCCESS"
+  }
+}
+
+PayoutStatusResponse:
+{
+  response_code: "00",
+  response_message: "Transaction successful",
+  transaction_status: "NIP_SUCCESS"
+}
+```
+
+## Usage Examples
+
+### Basic Status Check
+
+```php
+use BrokeYourBike\Payaza\Client;
+use BrokeYourBike\Payaza\Enums\TransactionStatusEnum;
+
+$response = $client->payoutStatus('TXN-123456');
+
+if ($response->transaction_status === TransactionStatusEnum::NIP_SUCCESS->value) {
+    echo "Transaction completed successfully\n";
+} elseif ($response->transaction_status === TransactionStatusEnum::NIP_PENDING->value) {
+    echo "Transaction still processing\n";
+} elseif ($response->transaction_status === TransactionStatusEnum::NIP_FAILURE->value) {
+    echo "Transaction failed: {$response->response_message}\n";
+}
+```
+
+### Polling for Completion
+
+```php
+use BrokeYourBike\Payaza\Enums\TransactionStatusEnum;
+
+function waitForCompletion(Client $client, string $reference, int $maxAttempts = 20): PayoutStatusResponse
+{
+    $pendingStatuses = [
+        TransactionStatusEnum::TRANSACTION_INITIATED->value,
+        TransactionStatusEnum::ESCROW_SUCCESS->value,
+        TransactionStatusEnum::NIP_PENDING->value,
+    ];
+
+    for ($i = 0; $i < $maxAttempts; $i++) {
+        $response = $client->payoutStatus($reference);
+        
+        // Check if transaction is complete (success or failure)
+        if (!in_array($response->transaction_status, $pendingStatuses)) {
+            return $response;
+        }
+        
+        // Wait before next poll
+        sleep(5);
+    }
+    
+    throw new TimeoutException("Transaction status check timed out after {$maxAttempts} attempts");
+}
+
+$finalStatus = waitForCompletion($client, 'TXN-123456');
+```
+
+### Handling All Status Cases
+
+```php
+use BrokeYourBike\Payaza\Enums\TransactionStatusEnum;
+
+$response = $client->payoutStatus($reference);
+
+match ($response->transaction_status) {
+    TransactionStatusEnum::TRANSACTION_INITIATED->value => [
+        logInfo("Transaction initiated and queued"),
+        scheduleNextPoll($reference, 10),
+    ],
+    TransactionStatusEnum::ESCROW_SUCCESS->value => [
+        logInfo("Amount deducted, processing at bank"),
+        scheduleNextPoll($reference, 30),
+    ],
+    TransactionStatusEnum::NIP_PENDING->value => [
+        logInfo("Transaction pending at bank"),
+        scheduleNextPoll($reference, 30),
+    ],
+    TransactionStatusEnum::NIP_SUCCESS->value => [
+        logSuccess("Transaction completed successfully"),
+        markTransactionComplete($reference),
+        notifyCustomer($reference, 'success'),
+    ],
+    TransactionStatusEnum::NIP_FAILURE->value => [
+        logError("Transaction failed: {$response->response_message}"),
+        markTransactionFailed($reference),
+        notifyCustomer($reference, 'failed'),
+    ],
+    TransactionStatusEnum::NIP_REVERSAL_SUCCESS->value => [
+        logWarning("Transaction reversed"),
+        markTransactionReversed($reference),
+        notifyCustomer($reference, 'reversed'),
+    ],
+    default => [
+        logError("Unknown status: {$response->transaction_status}"),
+        flagForManualReview($reference),
+    ],
+};
+```
+
+### Error Handling
+
+```php
+use BrokeYourBike\Payaza\Enums\ErrorCodeEnum;
+
+$response = $client->payoutStatus($reference);
+
+// Check if status query itself failed
+if ($response->response_code !== ErrorCodeEnum::OK->value) {
+    logger()->error('Status check failed', [
+        'reference' => $reference,
+        'code' => $response->response_code,
+        'message' => $response->response_message,
+    ]);
+    
+    throw new StatusCheckException(
+        "Failed to check status: {$response->response_message}"
+    );
+}
+
+// Process transaction status
+processTransactionStatus($response->transaction_status);
+```
+
+### Logging Status Updates
+
+```php
+$response = $client->payoutStatus($reference);
+
+logger()->info('Transaction status checked', [
+    'reference' => $reference,
+    'response_code' => $response->response_code,
+    'response_message' => $response->response_message,
+    'transaction_status' => $response->transaction_status,
+    'is_complete' => in_array($response->transaction_status, [
+        TransactionStatusEnum::NIP_SUCCESS->value,
+        TransactionStatusEnum::NIP_FAILURE->value,
+        TransactionStatusEnum::NIP_REVERSAL_SUCCESS->value,
+    ]),
+]);
+```
+
+### Building a Status Dashboard
+
+```php
+function getTransactionDetails(Client $client, string $reference): array
+{
+    $response = $client->payoutStatus($reference);
+    
+    return [
+        'reference' => $reference,
+        'status' => $response->transaction_status,
+        'message' => $response->response_message,
+        'is_successful' => $response->transaction_status === TransactionStatusEnum::NIP_SUCCESS->value,
+        'is_pending' => in_array($response->transaction_status, [
+            TransactionStatusEnum::TRANSACTION_INITIATED->value,
+            TransactionStatusEnum::ESCROW_SUCCESS->value,
+            TransactionStatusEnum::NIP_PENDING->value,
+        ]),
+        'is_failed' => in_array($response->transaction_status, [
+            TransactionStatusEnum::NIP_FAILURE->value,
+        ]),
+        'is_reversed' => $response->transaction_status === TransactionStatusEnum::NIP_REVERSAL_SUCCESS->value,
+    ];
+}
+```
+
+## Inheritance
+
+The `PayoutStatusResponse` extends `BrokeYourBike\DataTransferObject\JsonResponse`, which provides:
+
+- Automatic JSON parsing from PSR-7 response objects
+- Type safety for property access
+- Nullable property handling
+
+## Best Practices
+
+1. Poll status at appropriate intervals based on current status
+2. Implement exponential backoff for repeated status checks
+3. Set reasonable timeout limits for polling
+4. Handle all possible transaction statuses
+5. Log status changes for audit trails
+6. Consider `ESCROW_SUCCESS` as a pending state that requires monitoring
+
+## Related
+
+- [Client](/api-reference/client) - API client with payoutStatus() method that returns this response
+- [PayoutResponse](/api-reference/responses/payout-response) - Initial payout response
+- [TransactionStatusEnum](/api-reference/enums/transaction-status-enum) - Transaction status values
+- [ErrorCodeEnum](/api-reference/enums/error-code-enum) - Response code values

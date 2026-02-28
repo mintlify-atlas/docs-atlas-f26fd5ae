@@ -1,0 +1,293 @@
+---
+title: Checking Transaction Status
+description: Learn how to check the status of your payout transactions using transaction references
+---
+
+After initiating a payout, you can check its status at any time using the transaction reference.
+
+## Overview
+
+The `payoutStatus()` method allows you to query the current state of a transaction using its unique reference. This is essential for tracking transactions and handling asynchronous processing.
+
+## Checking Status
+
+<Steps>
+  <Step title="Get Your Transaction Reference">
+    When you create a payout, you provide a unique reference. Save this reference to check the status later:
+
+    ```php
+    $reference = 'TXN-' . uniqid();
+    $transaction = new Payout(
+        reference: $reference,
+        amount: 5000.00,
+        bankAccount: '0123456789',
+        bankCode: '058',
+        recipientName: 'John Doe'
+    );
+
+    $response = $client->payout($transaction);
+    // Save $reference for later status checks
+    ```
+  </Step>
+
+  <Step title="Query Transaction Status">
+    Use the `payoutStatus()` method with your saved reference:
+
+    ```php
+    $statusResponse = $client->payoutStatus($reference);
+    ```
+
+    The method signature is simple:
+
+    ```php
+    public function payoutStatus(string $reference): PayoutStatusResponse
+    ```
+  </Step>
+
+  <Step title="Process the Status Response">
+    The `PayoutStatusResponse` object contains three key properties:
+
+    ```php
+    class PayoutStatusResponse
+    {
+        public ?string $response_code;
+        public ?string $response_message;
+        public ?string $transaction_status;
+    }
+    ```
+
+    Example usage:
+
+    ```php
+    echo "Response Code: {$statusResponse->response_code}\n";
+    echo "Message: {$statusResponse->response_message}\n";
+    echo "Status: {$statusResponse->transaction_status}\n";
+    ```
+  </Step>
+</Steps>
+
+## Transaction Status Values
+
+The `transaction_status` field can contain any of these values from the `TransactionStatusEnum`:
+
+### TRANSACTION_INITIATED
+
+Transaction has been received and queued for processing.
+
+```php
+if ($statusResponse->transaction_status === 'TRANSACTION_INITIATED') {
+    echo "Transaction is queued for processing";
+}
+```
+
+### ESCROW_SUCCESS
+
+Amount has been deducted, but it is being processed by the bank. The transaction can be reversed due to network problems.
+
+```php
+if ($statusResponse->transaction_status === 'ESCROW_SUCCESS') {
+    echo "Amount deducted, awaiting bank confirmation";
+}
+```
+
+<Warning>
+  Transactions in ESCROW_SUCCESS state may still be reversed if the bank encounters issues.
+</Warning>
+
+### NIP_SUCCESS
+
+Transaction is successful and complete.
+
+```php
+if ($statusResponse->transaction_status === 'NIP_SUCCESS') {
+    echo "Transaction completed successfully!";
+}
+```
+
+### NIP_FAILURE
+
+Transaction has failed.
+
+```php
+if ($statusResponse->transaction_status === 'NIP_FAILURE') {
+    echo "Transaction failed";
+}
+```
+
+### NIP_PENDING
+
+Transaction is still in progress.
+
+```php
+if ($statusResponse->transaction_status === 'NIP_PENDING') {
+    echo "Transaction is still processing";
+}
+```
+
+### NIP_REVERSAL_SUCCESS
+
+Transaction failed at the bank and was automatically reversed. The amount is credited back to your account.
+
+```php
+if ($statusResponse->transaction_status === 'NIP_REVERSAL_SUCCESS') {
+    echo "Transaction reversed, amount credited back";
+}
+```
+
+<Note>
+  Always handle reversals appropriately in your application logic to maintain accurate accounting.
+</Note>
+
+## Complete Example
+
+Here's a comprehensive example that creates a payout and polls for its status:
+
+```php
+use BrokeYourBike\Payaza\Client;
+use BrokeYourBike\Payaza\Enums\TransactionStatusEnum;
+
+// Create and send payout
+$reference = 'TXN-' . time();
+$transaction = new Payout(
+    reference: $reference,
+    amount: 7500.00,
+    bankAccount: '0987654321',
+    bankCode: '058',
+    recipientName: 'Sarah Johnson'
+);
+
+try {
+    $payoutResponse = $client->payout($transaction);
+    
+    if ($payoutResponse->response_code !== '00') {
+        throw new Exception("Payout failed: {$payoutResponse->response_message}");
+    }
+    
+    echo "Payout initiated. Checking status...\n";
+    
+    // Poll for status (in production, use a queue/webhook instead)
+    $maxAttempts = 10;
+    $attempt = 0;
+    
+    while ($attempt < $maxAttempts) {
+        sleep(5); // Wait 5 seconds between checks
+        
+        $statusResponse = $client->payoutStatus($reference);
+        $status = $statusResponse->transaction_status;
+        
+        echo "Attempt {$attempt}: Status = {$status}\n";
+        
+        switch ($status) {
+            case TransactionStatusEnum::NIP_SUCCESS->value:
+                echo "✓ Transaction completed successfully!\n";
+                exit(0);
+                
+            case TransactionStatusEnum::NIP_FAILURE->value:
+                echo "✗ Transaction failed: {$statusResponse->response_message}\n";
+                exit(1);
+                
+            case TransactionStatusEnum::NIP_REVERSAL_SUCCESS->value:
+                echo "↩ Transaction reversed. Check your account.\n";
+                exit(1);
+                
+            case TransactionStatusEnum::TRANSACTION_INITIATED->value:
+            case TransactionStatusEnum::ESCROW_SUCCESS->value:
+            case TransactionStatusEnum::NIP_PENDING->value:
+                echo "⏳ Still processing...\n";
+                break;
+                
+            default:
+                echo "Unknown status: {$status}\n";
+        }
+        
+        $attempt++;
+    }
+    
+    echo "Status check timeout. Please check later.\n";
+    
+} catch (\Exception $e) {
+    echo "Error: {$e->getMessage()}\n";
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Webhooks Instead of Polling">
+    In production environments, configure webhooks to receive status updates instead of continuously polling the API. This reduces API calls and provides real-time updates.
+  </Accordion>
+
+  <Accordion title="Store References in Your Database">
+    Always store transaction references in your database along with the transaction details. This allows you to check status at any time and maintain an audit trail.
+  </Accordion>
+
+  <Accordion title="Handle All Status Values">
+    Implement logic to handle all possible status values, including edge cases like reversals and pending states.
+  </Accordion>
+
+  <Accordion title="Implement Exponential Backoff">
+    If you must poll, use exponential backoff to reduce API load:
+    
+    ```php
+    $delay = 2; // Start with 2 seconds
+    for ($i = 0; $i < 10; $i++) {
+        sleep($delay);
+        $status = $client->payoutStatus($reference);
+        // Process status...
+        $delay *= 2; // Double the delay each time
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## API Endpoint Details
+
+The `payoutStatus()` method makes a GET request to:
+
+```
+GET /payaza-account/api/v1/mainaccounts/merchant/transaction/{reference}
+```
+
+With headers:
+- `Accept: application/json`
+- `Authorization: Payaza {base64_encoded_token}`
+- `X-TenantID: {your_tenant_id}`
+
+<Tip>
+  Authentication and header management is handled automatically by the client.
+</Tip>
+
+## Error Handling
+
+```php
+try {
+    $statusResponse = $client->payoutStatus($reference);
+    
+    if (!$statusResponse->response_code) {
+        throw new Exception('Invalid response from API');
+    }
+    
+    if ($statusResponse->response_code !== '00') {
+        // Handle non-success response
+        error_log("Status check failed: {$statusResponse->response_message}");
+    }
+    
+} catch (\GuzzleHttp\Exception\RequestException $e) {
+    // Handle network/HTTP errors
+    error_log("Network error: {$e->getMessage()}");
+} catch (\Exception $e) {
+    // Handle other errors
+    error_log("Error: {$e->getMessage()}");
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Creating Payouts" icon="paper-plane" href="/guides/creating-payouts">
+    Learn how to create and send payouts
+  </Card>
+  <Card title="Transaction Status Reference" icon="book" href="/api-reference/enums/transaction-status-enum">
+    View all possible transaction status values
+  </Card>
+</CardGroup>

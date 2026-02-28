@@ -1,0 +1,221 @@
+---
+title: Installation
+description: Install and configure the Payaza API Client for PHP using Composer
+---
+
+# Installation
+
+The Payaza API Client is distributed via Packagist and can be installed using Composer, the standard dependency manager for PHP projects.
+
+## Requirements
+
+Before installing, ensure your environment meets these requirements:
+
+<CardGroup cols={2}>
+  <Card title="PHP Version" icon="php">
+    **PHP 8.1 or higher** is required
+  </Card>
+  <Card title="Composer" icon="box">
+    Composer must be installed on your system
+  </Card>
+</CardGroup>
+
+### System Requirements
+
+- **PHP**: ^8.1
+- **Extensions**: JSON support (typically enabled by default)
+
+### Dependencies
+
+The library automatically installs these dependencies:
+
+- `brokeyourbike/http-client` (^1.0) - HTTP client abstraction layer
+- `brokeyourbike/resolve-uri` (^1.0) - URI resolution utilities
+- `brokeyourbike/http-enums` (^2.0) - HTTP method enumerations
+- `brokeyourbike/has-source-model` (^2.0) - Source model tracking
+- `brokeyourbike/data-transfer-object` (^0.2.0) - DTO implementation
+
+<Note>
+  You'll also need to install a PSR-18 compatible HTTP client. The library works with Guzzle HTTP client, which is the recommended choice.
+</Note>
+
+## Install via Composer
+
+<Steps>
+  <Step title="Add the Package">
+    Run the following command in your project directory:
+
+    ```bash
+    composer require brokeyourbike/payaza-api-client
+    ```
+
+    This will download the library and all required dependencies into your `vendor/` directory.
+  </Step>
+
+  <Step title="Install HTTP Client">
+    If you don't already have Guzzle installed, add it to your project:
+
+    ```bash
+    composer require guzzlehttp/guzzle
+    ```
+
+    <Tip>
+      Guzzle is the most popular PHP HTTP client and is recommended for production use. The library is compatible with any PSR-18 HTTP client.
+    </Tip>
+  </Step>
+
+  <Step title="Verify Installation">
+    Check that the package was installed successfully:
+
+    ```bash
+    composer show brokeyourbike/payaza-api-client
+    ```
+
+    You should see output displaying the package version and details.
+  </Step>
+</Steps>
+
+## Autoloading
+
+The library uses PSR-4 autoloading, which Composer handles automatically. Once installed, you can import classes without any additional configuration:
+
+```php
+use BrokeYourBike\Payaza\Client;
+use BrokeYourBike\Payaza\Interfaces\ConfigInterface;
+use BrokeYourBike\Payaza\Interfaces\TransactionInterface;
+use BrokeYourBike\Payaza\Enums\TransactionStatusEnum;
+use BrokeYourBike\Payaza\Enums\ErrorCodeEnum;
+```
+
+<Note>
+  Make sure to include Composer's autoloader in your application:
+  
+  ```php
+  require_once __DIR__ . '/vendor/autoload.php';
+  ```
+</Note>
+
+## Package Information
+
+<CodeGroup>
+```json composer.json
+{
+  "name": "brokeyourbike/payaza-api-client",
+  "description": "Payaza API Client for PHP",
+  "type": "library",
+  "license": "BSD-3-Clause",
+  "version": "0.3.1",
+  "require": {
+    "php": "^8.1"
+  }
+}
+```
+
+```bash Package Details
+Package: brokeyourbike/payaza-api-client
+License: BSD-3-Clause
+Type: Library
+Namespace: BrokeYourBike\\Payaza
+```
+</CodeGroup>
+
+## Development Installation
+
+If you're contributing to the library or running tests, install with development dependencies:
+
+```bash
+composer require --dev brokeyourbike/payaza-api-client
+```
+
+This includes additional packages:
+
+- PHPUnit for testing
+- Mockery for mocking
+- Carbon for date/time handling in tests
+
+## Updating the Package
+
+To update to the latest version:
+
+```bash
+composer update brokeyourbike/payaza-api-client
+```
+
+To update all dependencies:
+
+```bash
+composer update
+```
+
+## Version Constraints
+
+You can specify version constraints in your `composer.json`:
+
+<CodeGroup>
+```json Exact Version
+{
+  "require": {
+    "brokeyourbike/payaza-api-client": "0.3.1"
+  }
+}
+```
+
+```json Minimum Version
+{
+  "require": {
+    "brokeyourbike/payaza-api-client": "^0.3"
+  }
+}
+```
+
+```json Development Snapshot
+{
+  "require": {
+    "brokeyourbike/payaza-api-client": "dev-main"
+  }
+}
+```
+</CodeGroup>
+
+<Warning>
+  Using `dev-main` or other development branches in production is not recommended as they may contain unstable code.
+</Warning>
+
+## Troubleshooting
+
+### PHP Version Mismatch
+
+If you encounter an error about PHP version requirements:
+
+```bash
+Your PHP version (8.0.x) does not satisfy that requirement.
+```
+
+You need to upgrade to PHP 8.1 or higher. Check your version:
+
+```bash
+php -v
+```
+
+### Memory Limit Issues
+
+If Composer runs out of memory during installation:
+
+```bash
+COMPOSER_MEMORY_LIMIT=-1 composer require brokeyourbike/payaza-api-client
+```
+
+### Clear Composer Cache
+
+If you experience issues with cached packages:
+
+```bash
+composer clear-cache
+composer require brokeyourbike/payaza-api-client
+```
+
+## Next Steps
+
+<Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+  Now that you've installed the library, follow the quickstart guide to build your first payout integration.
+</Card>

@@ -1,0 +1,241 @@
+---
+title: Creating Payouts
+description: Learn how to create and send payouts using the Payaza API Client for PHP
+---
+
+This guide walks you through the complete process of creating and sending payouts to bank accounts using the Payaza API.
+
+## Prerequisites
+
+Before creating payouts, ensure you have:
+
+- Configured your client with valid credentials
+- Implemented the `TransactionInterface` for your transaction model
+- Set up sender information in your configuration
+
+## Creating a Payout
+
+<Steps>
+  <Step title="Prepare Your Transaction">
+    Create a transaction object that implements `TransactionInterface`. This interface requires five essential methods:
+
+    ```php
+    interface TransactionInterface
+    {
+        public function getReference(): string;
+        public function getAmount(): float;
+        public function getBankAccount(): string;
+        public function getBankCode(): string;
+        public function getRecipientName(): string;
+    }
+    ```
+
+    <Note>
+      The reference should be unique for each transaction to avoid duplicates.
+    </Note>
+  </Step>
+
+  <Step title="Create Your Transaction Object">
+    Here's a complete example of implementing the transaction interface:
+
+    ```php
+    use BrokeYourBike\Payaza\Interfaces\TransactionInterface;
+
+    class Payout implements TransactionInterface
+    {
+        public function __construct(
+            private string $reference,
+            private float $amount,
+            private string $bankAccount,
+            private string $bankCode,
+            private string $recipientName
+        ) {}
+
+        public function getReference(): string
+        {
+            return $this->reference;
+        }
+
+        public function getAmount(): float
+        {
+            return $this->amount;
+        }
+
+        public function getBankAccount(): string
+        {
+            return $this->bankAccount;
+        }
+
+        public function getBankCode(): string
+        {
+            return $this->bankCode;
+        }
+
+        public function getRecipientName(): string
+        {
+            return $this->recipientName;
+        }
+    }
+    ```
+  </Step>
+
+  <Step title="Execute the Payout">
+    Call the `payout()` method on your client instance:
+
+    ```php
+    $transaction = new Payout(
+        reference: 'TXN-' . uniqid(),
+        amount: 5000.00,
+        bankAccount: '0123456789',
+        bankCode: '058',
+        recipientName: 'John Doe'
+    );
+
+    $response = $client->payout($transaction);
+    ```
+
+    <Tip>
+      The client automatically handles authentication by encoding your token and including it in the Authorization header.
+    </Tip>
+  </Step>
+
+  <Step title="Handle the Response">
+    The `payout()` method returns a `PayoutResponse` object with the following properties:
+
+    ```php
+    class PayoutResponse
+    {
+        public ?string $response_code;
+        public ?string $response_message;
+        public ?string $transaction_status;
+    }
+    ```
+
+    Process the response:
+
+    ```php
+    if ($response->response_code === '00') {
+        echo "Payout successful!\n";
+        echo "Status: {$response->transaction_status}\n";
+    } else {
+        echo "Payout failed: {$response->response_message}\n";
+    }
+    ```
+  </Step>
+</Steps>
+
+## Request Structure
+
+The client constructs the following request payload from your transaction and configuration:
+
+```json
+{
+  "transaction_type": "nuban",
+  "service_payload": {
+    "payout_amount": 5000.00,
+    "transaction_pin": "your-pin",
+    "account_reference": "your-account-ref",
+    "payout_beneficiaries": [
+      {
+        "credit_amount": 5000.00,
+        "account_number": "0123456789",
+        "account_name": "John Doe",
+        "bank_code": "058",
+        "narration": "TXN-12345",
+        "transaction_reference": "TXN-12345",
+        "sender": {
+          "sender_name": "Your Company",
+          "sender_phone_number": "+2341234567890",
+          "sender_address": "123 Main St"
+        }
+      }
+    ]
+  }
+}
+```
+
+<Note>
+  The transaction reference is used for both the narration and transaction_reference fields.
+</Note>
+
+## Complete Example
+
+Here's a full working example:
+
+```php
+use BrokeYourBike\Payaza\Client;
+use BrokeYourBike\Payaza\Interfaces\TransactionInterface;
+
+// Assume $config implements ConfigInterface
+$client = new Client($config, new \GuzzleHttp\Client());
+
+// Create transaction
+$transaction = new class implements TransactionInterface {
+    public function getReference(): string
+    {
+        return 'TXN-' . time();
+    }
+
+    public function getAmount(): float
+    {
+        return 10000.00;
+    }
+
+    public function getBankAccount(): string
+    {
+        return '0123456789';
+    }
+
+    public function getBankCode(): string
+    {
+        return '058'; // GTBank
+    }
+
+    public function getRecipientName(): string
+    {
+        return 'Jane Smith';
+    }
+};
+
+// Execute payout
+try {
+    $response = $client->payout($transaction);
+    
+    if ($response->response_code === '00') {
+        echo "Payout initiated successfully!\n";
+        echo "Transaction Status: {$response->transaction_status}\n";
+        echo "Message: {$response->response_message}\n";
+    } else {
+        echo "Payout failed: {$response->response_message}\n";
+    }
+} catch (\Exception $e) {
+    echo "Error: {$e->getMessage()}\n";
+}
+```
+
+## Required Configuration
+
+The payout method uses these configuration values:
+
+- `getToken()` - Your API authentication token
+- `getTenantId()` - Your tenant identifier
+- `getTransactionPin()` - Your transaction PIN
+- `getAccountReference()` - Your account reference
+- `getSenderName()` - Sender's full name
+- `getSenderPhone()` - Sender's phone number
+- `getSenderAddress()` - Sender's address
+
+<Warning>
+  Keep your transaction PIN and API token secure. Never commit these values to version control.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Check Transaction Status" icon="magnifying-glass" href="/guides/checking-transaction-status">
+    Learn how to check the status of your payouts
+  </Card>
+  <Card title="Implement Interfaces" icon="code" href="/guides/implementing-interfaces">
+    Learn how to implement the required interfaces
+  </Card>
+</CardGroup>

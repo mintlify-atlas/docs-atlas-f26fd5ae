@@ -1,80 +1,442 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Build your first Payaza payout integration in minutes with this step-by-step guide
 ---
 
-## Get started in three steps
+# Quickstart Guide
 
-Get your documentation site running locally and make your first customization.
+This guide will walk you through creating your first payout integration with the Payaza API Client. You'll learn how to configure the client, process a payout, and check transaction status.
 
-### Step 1: Set up your local environment
+## Prerequisites
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+Before starting, make sure you have:
+
+- PHP 8.1+ installed
+- Composer installed
+- Payaza API credentials (API token, Tenant ID, Transaction PIN)
+- The package installed (see [Installation](/installation))
+
+## Complete Implementation
+
+<Steps>
+  <Step title="Implement Configuration Class">
+    Create a class that implements `ConfigInterface` to store your Payaza credentials and settings.
+
+    ```php
+    use BrokeYourBike\Payaza\Interfaces\ConfigInterface;
+
+    class PayazaConfig implements ConfigInterface
+    {
+        public function __construct(
+            private string $url,
+            private string $token,
+            private string $tenantId,
+            private string $transactionPin,
+            private string $accountReference,
+            private string $senderName,
+            private string $senderPhone,
+            private string $senderAddress,
+        ) {}
+
+        public function getUrl(): string
+        {
+            return $this->url;
+        }
+
+        public function getToken(): string
+        {
+            return $this->token;
+        }
+
+        public function getTenantId(): string
+        {
+            return $this->tenantId;
+        }
+
+        public function getTransactionPin(): string
+        {
+            return $this->transactionPin;
+        }
+
+        public function getAccountReference(): string
+        {
+            return $this->accountReference;
+        }
+
+        public function getSenderName(): string
+        {
+            return $this->senderName;
+        }
+
+        public function getSenderPhone(): string
+        {
+            return $this->senderPhone;
+        }
+
+        public function getSenderAddress(): string
+        {
+            return $this->senderAddress;
+        }
+    }
+    ```
+
+    <Tip>
+      Store sensitive credentials like API tokens in environment variables, not in your source code:
+      
+      ```php
+      $token = getenv('PAYAZA_API_TOKEN');
+      ```
+    </Tip>
+  </Step>
+
+  <Step title="Implement Transaction Class">
+    Create a transaction class that implements `TransactionInterface` with the payout details.
+
+    ```php
+    use BrokeYourBike\Payaza\Interfaces\TransactionInterface;
+
+    class PayoutTransaction implements TransactionInterface
+    {
+        public function __construct(
+            private string $reference,
+            private float $amount,
+            private string $bankAccount,
+            private string $bankCode,
+            private string $recipientName,
+        ) {}
+
+        public function getReference(): string
+        {
+            return $this->reference;
+        }
+
+        public function getAmount(): float
+        {
+            return $this->amount;
+        }
+
+        public function getBankAccount(): string
+        {
+            return $this->bankAccount;
+        }
+
+        public function getBankCode(): string
+        {
+            return $this->bankCode;
+        }
+
+        public function getRecipientName(): string
+        {
+            return $this->recipientName;
+        }
+    }
+    ```
+
+    <Note>
+      - **reference**: Your unique transaction identifier
+      - **amount**: Payout amount in Naira (e.g., 5000.00)
+      - **bankAccount**: 10-digit NUBAN account number
+      - **bankCode**: Nigerian bank code (e.g., "044" for Access Bank)
+      - **recipientName**: Account holder's name
+    </Note>
+  </Step>
+
+  <Step title="Initialize the Client">
+    Create the Payaza client with your configuration and an HTTP client.
+
+    ```php
+    use BrokeYourBike\Payaza\Client;
+    use GuzzleHttp\Client as GuzzleClient;
+
+    // Create configuration
+    $config = new PayazaConfig(
+        url: 'https://router-live.78financials.com/',
+        token: 'your-api-token',
+        tenantId: 'your-tenant-id',
+        transactionPin: 'your-transaction-pin',
+        accountReference: 'your-account-reference',
+        senderName: 'Your Business Name',
+        senderPhone: '+2348012345678',
+        senderAddress: 'Your Business Address',
+    );
+
+    // Create HTTP client
+    $httpClient = new GuzzleClient();
+
+    // Initialize Payaza client
+    $payazaClient = new Client($config, $httpClient);
+    ```
+
+    <Warning>
+      Use the production URL `https://router-live.78financials.com/` for live transactions. Payaza will provide sandbox credentials for testing.
+    </Warning>
+  </Step>
+
+  <Step title="Process a Payout">
+    Create a transaction and process the payout.
+
+    ```php
+    use BrokeYourBike\Payaza\Enums\ErrorCodeEnum;
+
+    // Create a payout transaction
+    $transaction = new PayoutTransaction(
+        reference: 'TXN-' . time() . '-' . rand(1000, 9999),
+        amount: 5000.00,
+        bankAccount: '0123456789',
+        bankCode: '044', // Access Bank
+        recipientName: 'John Doe',
+    );
+
+    // Process the payout
+    $response = $payazaClient->payout($transaction);
+
+    // Check the response
+    if ($response->response_code === ErrorCodeEnum::OK->value) {
+        echo "Payout initiated successfully!\n";
+        echo "Status: {$response->transaction_status}\n";
+        echo "Message: {$response->response_message}\n";
+    } else {
+        echo "Payout failed!\n";
+        echo "Error: {$response->response_message}\n";
+    }
+    ```
+
+    <Tip>
+      The `payout()` method returns a `PayoutResponse` object with these properties:
+      - `response_code`: Response code ("00" for success)
+      - `response_message`: Human-readable message
+      - `transaction_status`: Current transaction status
+    </Tip>
+  </Step>
+
+  <Step title="Check Transaction Status">
+    Query the status of a transaction using its reference.
+
+    ```php
+    use BrokeYourBike\Payaza\Enums\TransactionStatusEnum;
+
+    // Check transaction status
+    $status = $payazaClient->payoutStatus($transaction->getReference());
+
+    echo "Transaction Status: {$status->transaction_status}\n";
+    echo "Response Code: {$status->response_code}\n";
+    echo "Message: {$status->response_message}\n";
+
+    // Check specific statuses using the enum
+    if ($status->transaction_status === TransactionStatusEnum::NIP_SUCCESS->value) {
+        echo "Transaction completed successfully!\n";
+    } elseif ($status->transaction_status === TransactionStatusEnum::NIP_PENDING->value) {
+        echo "Transaction is still processing...\n";
+    } elseif ($status->transaction_status === TransactionStatusEnum::NIP_FAILURE->value) {
+        echo "Transaction failed!\n";
+    }
+    ```
+
+    <Note>
+      The `payoutStatus()` method returns a `PayoutStatusResponse` object with:
+      - `response_code`: API response code
+      - `response_message`: Status message
+      - `transaction_status`: Current transaction state
+    </Note>
+  </Step>
+</Steps>
+
+## Understanding Transaction Statuses
+
+The library provides a `TransactionStatusEnum` with these states:
+
+<CodeGroup>
+```php Transaction States
+use BrokeYourBike\Payaza\Enums\TransactionStatusEnum;
+
+// Initial state - queued for processing
+TransactionStatusEnum::TRANSACTION_INITIATED;
+
+// Amount deducted, awaiting bank confirmation
+TransactionStatusEnum::ESCROW_SUCCESS;
+
+// Transaction completed successfully
+TransactionStatusEnum::NIP_SUCCESS;
+
+// Transaction failed
+TransactionStatusEnum::NIP_FAILURE;
+
+// Still processing at the bank
+TransactionStatusEnum::NIP_PENDING;
+
+// Failed and automatically reversed
+TransactionStatusEnum::NIP_REVERSAL_SUCCESS;
+```
+</CodeGroup>
+
+### Status Flow
+
+```
+TRANSACTION_INITIATED → ESCROW_SUCCESS → NIP_PENDING → NIP_SUCCESS
+                                              ↓
+                                         NIP_FAILURE → NIP_REVERSAL_SUCCESS
+```
+
+<Tip>
+  Always use the enum constants instead of hardcoding status strings for type safety and IDE autocomplete support.
+</Tip>
+
+## Complete Example
+
+Here's a complete working example combining all the steps:
+
+```php
+<?php
+
+require_once __DIR__ . '/vendor/autoload.php';
+
+use BrokeYourBike\Payaza\Client;
+use BrokeYourBike\Payaza\Enums\ErrorCodeEnum;
+use BrokeYourBike\Payaza\Enums\TransactionStatusEnum;
+use GuzzleHttp\Client as GuzzleClient;
+
+// Configuration (implement ConfigInterface as shown in Step 1)
+$config = new PayazaConfig(
+    url: getenv('PAYAZA_URL'),
+    token: getenv('PAYAZA_TOKEN'),
+    tenantId: getenv('PAYAZA_TENANT_ID'),
+    transactionPin: getenv('PAYAZA_PIN'),
+    accountReference: getenv('PAYAZA_ACCOUNT_REF'),
+    senderName: 'My Business',
+    senderPhone: '+2348012345678',
+    senderAddress: 'Lagos, Nigeria',
+);
+
+// Initialize client
+$client = new Client($config, new GuzzleClient());
+
+// Create transaction (implement TransactionInterface as shown in Step 2)
+$transaction = new PayoutTransaction(
+    reference: 'TXN-' . uniqid(),
+    amount: 1000.00,
+    bankAccount: '0123456789',
+    bankCode: '044',
+    recipientName: 'John Doe',
+);
+
+try {
+    // Process payout
+    $response = $client->payout($transaction);
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    if ($response->response_code === ErrorCodeEnum::OK->value) {
+        echo "✓ Payout initiated: {$response->transaction_status}\n";
+        
+        // Wait a moment for processing
+        sleep(3);
+        
+        // Check status
+        $status = $client->payoutStatus($transaction->getReference());
+        
+        switch ($status->transaction_status) {
+            case TransactionStatusEnum::NIP_SUCCESS->value:
+                echo "✓ Payment successful!\n";
+                break;
+            case TransactionStatusEnum::NIP_PENDING->value:
+                echo "⏳ Payment pending...\n";
+                break;
+            case TransactionStatusEnum::NIP_FAILURE->value:
+                echo "✗ Payment failed: {$status->response_message}\n";
+                break;
+            default:
+                echo "Status: {$status->transaction_status}\n";
+        }
+    } else {
+        echo "✗ Failed to initiate payout: {$response->response_message}\n";
+    }
+} catch (\Exception $e) {
+    echo "Error: {$e->getMessage()}\n";
+}
+```
+
+## Error Handling
+
+Always wrap API calls in try-catch blocks to handle network errors:
+
+```php
+try {
+    $response = $client->payout($transaction);
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    // Check response code
+    if ($response->response_code !== ErrorCodeEnum::OK->value) {
+        // Handle API error
+        error_log("Payout failed: {$response->response_message}");
+    }
+} catch (\GuzzleHttp\Exception\RequestException $e) {
+    // Handle network/HTTP errors
+    error_log("Network error: {$e->getMessage()}");
+} catch (\Exception $e) {
+    // Handle other errors
+    error_log("Unexpected error: {$e->getMessage()}");
+}
+```
 
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
+## Best Practices
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Use Environment Variables" icon="key">
+    Store API credentials in `.env` files, never commit them to version control
+  </Card>
+  
+  <Card title="Generate Unique References" icon="fingerprint">
+    Always use unique transaction references to avoid duplicate payments
+  </Card>
+  
+  <Card title="Implement Status Polling" icon="rotate">
+    Poll `payoutStatus()` periodically until reaching a final state (SUCCESS, FAILURE, or REVERSAL)
+  </Card>
+  
+  <Card title="Log Transactions" icon="file-lines">
+    Log all requests and responses for debugging and audit trails
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+<Warning>
+  Never reuse transaction references. Each payout must have a unique reference to prevent duplicate payments.
+</Warning>
+
+## Testing
+
+For testing, create a mock configuration and transaction:
+
+```php
+// Mock configuration for tests
+$testConfig = new PayazaConfig(
+    url: 'https://sandbox.payaza.com/',
+    token: 'test-token',
+    tenantId: 'test-tenant',
+    transactionPin: '1234',
+    accountReference: 'test-ref',
+    senderName: 'Test Business',
+    senderPhone: '+2348000000000',
+    senderAddress: 'Test Address',
+);
+```
+
+<Tip>
+  Contact Payaza support to get sandbox credentials for testing your integration before going live.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="book" href="/api-reference">
+    Explore detailed API documentation for all methods
+  </Card>
+  
+  <Card title="Error Handling" icon="triangle-exclamation" href="/guides/error-handling">
+    Learn about error codes and handling strategies
+  </Card>
+  
+  <Card title="Configuration Guide" icon="gear" href="/guides/configuration">
+    Deep dive into configuration options
+  </Card>
+  
+  <Card title="Examples" icon="code" href="/examples">
+    See more code examples and use cases
+  </Card>
+</CardGroup>

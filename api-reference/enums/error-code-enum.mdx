@@ -1,0 +1,132 @@
+---
+title: ErrorCodeEnum
+description: Response code enumeration for API responses
+---
+
+The `ErrorCodeEnum` defines the standard response codes returned by the Payaza API.
+
+## Enum Definition
+
+```php
+namespace BrokeYourBike\Payaza\Enums;
+
+enum ErrorCodeEnum: string
+{
+    case OK = '00';
+    case SUCCESSFUL = '200';
+    case FAILED = '500';
+}
+```
+
+## Cases
+
+### OK
+
+Indicates a successful operation.
+
+```php
+ErrorCodeEnum::OK
+```
+
+<ResponseField name="value" type="string">
+  `'00'` - Standard success code used by Payaza API
+</ResponseField>
+
+This is the primary success code returned by the Payaza API for successful payout requests.
+
+### SUCCESSFUL
+
+Indicates a successful HTTP response.
+
+```php
+ErrorCodeEnum::SUCCESSFUL
+```
+
+<ResponseField name="value" type="string">
+  `'200'` - HTTP-style success code
+</ResponseField>
+
+This code follows standard HTTP conventions and indicates a successful operation.
+
+### FAILED
+
+Indicates a failed operation.
+
+```php
+ErrorCodeEnum::FAILED
+```
+
+<ResponseField name="value" type="string">
+  `'500'` - Error code indicating failure
+</ResponseField>
+
+This code indicates that the operation has failed. Check the response message for details.
+
+## Usage Examples
+
+### Checking Response Codes
+
+```php
+use BrokeYourBike\Payaza\Client;
+use BrokeYourBike\Payaza\Enums\ErrorCodeEnum;
+
+$response = $client->payout($transaction);
+
+if ($response->response_code === ErrorCodeEnum::OK->value) {
+    echo "Transaction initiated successfully";
+} elseif ($response->response_code === ErrorCodeEnum::SUCCESSFUL->value) {
+    echo "Transaction successful";
+} elseif ($response->response_code === ErrorCodeEnum::FAILED->value) {
+    echo "Transaction failed: {$response->response_message}";
+}
+```
+
+### Using Match Expression
+
+```php
+use BrokeYourBike\Payaza\Enums\ErrorCodeEnum;
+
+$message = match ($response->response_code) {
+    ErrorCodeEnum::OK->value,
+    ErrorCodeEnum::SUCCESSFUL->value => 'Transaction successful',
+    ErrorCodeEnum::FAILED->value => 'Transaction failed',
+    default => 'Unknown status',
+};
+```
+
+### Converting from String
+
+```php
+use BrokeYourBike\Payaza\Enums\ErrorCodeEnum;
+
+$code = ErrorCodeEnum::from($response->response_code);
+
+if ($code === ErrorCodeEnum::OK) {
+    // Handle success
+}
+```
+
+## Response Code Handling
+
+When processing API responses, always check the `response_code` field:
+
+```php
+$response = $client->payout($transaction);
+
+// Check for success
+if (in_array($response->response_code, [
+    ErrorCodeEnum::OK->value,
+    ErrorCodeEnum::SUCCESSFUL->value
+])) {
+    // Process successful transaction
+    processSuccessfulPayout($response);
+} else {
+    // Handle error
+    logError($response->response_message);
+}
+```
+
+## Related
+
+- [PayoutResponse](/api-reference/responses/payout-response) - Contains response_code field
+- [PayoutStatusResponse](/api-reference/responses/payout-status-response) - Contains response_code field

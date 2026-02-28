@@ -1,0 +1,308 @@
+---
+title: Error Handling
+description: Learn how to handle errors and check response codes when using the Payaza API Client
+---
+
+Proper error handling is essential when working with payment APIs. The Payaza API Client provides structured response objects and error codes to help you handle different scenarios.
+
+## Error Code Enum
+
+The client includes an `ErrorCodeEnum` (located at `src/Enums/ErrorCodeEnum.php:12`) that defines standard response codes:
+
+<ParamField path="OK" type="string" value="00">
+  Indicates a successful operation. This is the primary success code used by Payaza.
+</ParamField>
+
+<ParamField path="SUCCESSFUL" type="string" value="200">
+  Alternative success code indicating the request completed successfully. Similar to HTTP 200 status.
+</ParamField>
+
+<ParamField path="FAILED" type="string" value="500">
+  Indicates the operation failed. This is a general failure code that requires checking the response message for details.
+</ParamField>
+
+## Response Objects
+
+The client returns typed response objects that contain the API response data:
+
+### PayoutResponse
+
+Returned by `Client::payout()` (see `src/Responses/PayoutResponse.php:15`):
+
+```php
+class PayoutResponse extends JsonResponse
+{
+    public ?string $response_code;      // The response code (00, 200, 500, etc.)
+    public ?string $response_message;   // Human-readable response message
+    public ?string $transaction_status; // Mapped from response_content.response_status
+}
+```
+
+### PayoutStatusResponse
+
+Returned by `Client::payoutStatus()` (see `src/Responses/PayoutStatusResponse.php:15`):
+
+```php
+class PayoutStatusResponse extends JsonResponse
+{
+    public ?string $response_code;      // Mapped from data.responseCode
+    public ?string $response_message;   // Mapped from data.responseMessage
+    public ?string $transaction_status; // Mapped from data.transactionStatus
+}
+```
+
+<Note>
+  Both response classes extend `JsonResponse` and use attributes to map nested JSON fields to properties.
+</Note>
+
+## Checking Response Codes
+
+Here's how to check if a payout was successful:
+
+```php
+use BrokeYourBike\Payaza\Enums\ErrorCodeEnum;
+
+$response = $client->payout($transaction);
+
+if ($response->response_code === ErrorCodeEnum::OK->value) {
+    // Payout initiated successfully
+    echo "Payout successful: " . $response->response_message;
+} elseif ($response->response_code === ErrorCodeEnum::SUCCESSFUL->value) {
+    // Also a success (alternative code)
+    echo "Payout successful: " . $response->response_message;
+} elseif ($response->response_code === ErrorCodeEnum::FAILED->value) {
+    // Payout failed
+    echo "Payout failed: " . $response->response_message;
+} else {
+    // Unknown response code
+    echo "Unknown response: " . $response->response_code;
+}
+```
+
+<Tip>
+  Always check the `response_code` property to determine if the operation was successful. Don't rely solely on the absence of exceptions.
+</Tip>
+
+## Handling Payout Status Checks
+
+When checking the status of a payout:
+
+```php
+use BrokeYourBike\Payaza\Enums\ErrorCodeEnum;
+
+$statusResponse = $client->payoutStatus('TXN-123456');
+
+if ($statusResponse->response_code === ErrorCodeEnum::OK->value) {
+    echo "Transaction status: " . $statusResponse->transaction_status;
+    echo "Message: " . $statusResponse->response_message;
+} else {
+    echo "Failed to retrieve status: " . $statusResponse->response_message;
+}
+```
+
+## Understanding Error Codes
+
+<Accordion title="Success Codes: 00 and 200">
+  Both `00` and `200` indicate successful operations:
+  
+  - **00 (OK)**: The primary success code used by Payaza API
+  - **200 (SUCCESSFUL)**: Alternative success code, similar to HTTP 200 status
+  
+  ```php
+  // Check for either success code
+  $isSuccessful = in_array($response->response_code, [
+      ErrorCodeEnum::OK->value,
+      ErrorCodeEnum::SUCCESSFUL->value
+  ]);
+  
+  if ($isSuccessful) {
+      // Handle success
+  }
+  ```
+</Accordion>
+
+<Accordion title="Failure Code: 500">
+  The code `500` indicates a failed operation:
+  
+  - Check the `response_message` for specific error details
+  - Common reasons include:
+    - Invalid transaction PIN
+    - Insufficient balance
+    - Invalid account details
+    - Network or system errors
+  
+  ```php
+  if ($response->response_code === ErrorCodeEnum::FAILED->value) {
+      // Log the error message for debugging
+      error_log("Payout failed: " . $response->response_message);
+      
+      // Show user-friendly message
+      throw new Exception("Unable to process payout. Please try again.");
+  }
+  ```
+</Accordion>
+
+## Transaction Status
+
+In addition to response codes, check the `transaction_status` property:
+
+```php
+$response = $client->payout($transaction);
+
+if ($response->response_code === ErrorCodeEnum::OK->value) {
+    // Check transaction status for more details
+    switch ($response->transaction_status) {
+        case 'SUCCESSFUL':
+            echo "Payout completed successfully";
+            break;
+        case 'PENDING':
+            echo "Payout is being processed";
+            break;
+        case 'FAILED':
+            echo "Payout failed";
+            break;
+        default:
+            echo "Unknown status: " . $response->transaction_status;
+    }
+}
+```
+
+## Exception Handling
+
+While the client returns response objects with error codes, HTTP-level errors may still throw exceptions:
+
+```php
+use GuzzleHttp\Exception\RequestException;
+use BrokeYourBike\Payaza\Enums\ErrorCodeEnum;
+
+try {
+    $response = $client->payout($transaction);
+    
+    // Check API-level errors
+    if ($response->response_code === ErrorCodeEnum::FAILED->value) {
+        // Handle API error
+        throw new Exception($response->response_message);
+    }
+    
+    // Success
+    processSuccessfulPayout($response);
+    
+} catch (RequestException $e) {
+    // HTTP-level error (network issues, timeouts, etc.)
+    error_log("HTTP Error: " . $e->getMessage());
+    throw new Exception("Unable to connect to Payaza API");
+} catch (Exception $e) {
+    // Application-level error
+    error_log("Application Error: " . $e->getMessage());
+    throw $e;
+}
+```
+
+<Warning>
+  Always wrap API calls in try-catch blocks to handle network errors, timeouts, and other HTTP-level exceptions.
+</Warning>
+
+## Best Practices
+
+<Accordion title="Comprehensive Error Handling Example">
+  Here's a complete example with proper error handling:
+
+  ```php
+  use BrokeYourBike\Payaza\Client;
+  use BrokeYourBike\Payaza\Enums\ErrorCodeEnum;
+  use GuzzleHttp\Exception\RequestException;
+
+  class PayoutService
+  {
+      private Client $client;
+
+      public function processPayout(TransactionInterface $transaction): array
+      {
+          try {
+              // Attempt the payout
+              $response = $this->client->payout($transaction);
+              
+              // Check response code
+              if ($this->isSuccessful($response->response_code)) {
+                  return [
+                      'success' => true,
+                      'status' => $response->transaction_status,
+                      'message' => $response->response_message,
+                  ];
+              }
+              
+              // API returned an error
+              if ($response->response_code === ErrorCodeEnum::FAILED->value) {
+                  return [
+                      'success' => false,
+                      'error' => 'payout_failed',
+                      'message' => $response->response_message,
+                  ];
+              }
+              
+              // Unknown response code
+              return [
+                  'success' => false,
+                  'error' => 'unknown_response',
+                  'message' => 'Received unexpected response code: ' . $response->response_code,
+              ];
+              
+          } catch (RequestException $e) {
+              // Network or HTTP error
+              error_log('Payaza API error: ' . $e->getMessage());
+              
+              return [
+                  'success' => false,
+                  'error' => 'network_error',
+                  'message' => 'Unable to connect to payment service',
+              ];
+              
+          } catch (\Exception $e) {
+              // Unexpected error
+              error_log('Unexpected error: ' . $e->getMessage());
+              
+              return [
+                  'success' => false,
+                  'error' => 'system_error',
+                  'message' => 'An unexpected error occurred',
+              ];
+          }
+      }
+      
+      private function isSuccessful(?string $code): bool
+      {
+          return in_array($code, [
+              ErrorCodeEnum::OK->value,
+              ErrorCodeEnum::SUCCESSFUL->value,
+          ]);
+      }
+  }
+  ```
+</Accordion>
+
+<Tip>
+  **Error Handling Checklist**
+  
+  - Use try-catch to handle HTTP exceptions
+  - Check `response_code` against `ErrorCodeEnum` values
+  - Examine `response_message` for error details
+  - Monitor `transaction_status` for transaction state
+  - Log errors for debugging
+  - Return user-friendly error messages
+  - Never expose sensitive error details to end users
+</Tip>
+
+## Null Response Values
+
+<Note>
+  All response properties are nullable (`?string`). Always check for null values before using them:
+  
+  ```php
+  $response = $client->payout($transaction);
+  
+  if ($response->response_code === null) {
+      // Handle unexpected null response
+      throw new Exception("Received invalid response from API");
+  }
+  ```
+</Note>

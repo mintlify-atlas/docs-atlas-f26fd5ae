@@ -1,0 +1,691 @@
+---
+title: Implementing Interfaces
+description: Learn how to implement ConfigInterface and TransactionInterface in your application
+---
+
+The Payaza API Client requires you to implement two key interfaces: `ConfigInterface` for configuration and `TransactionInterface` for transactions. This guide shows you how to implement them correctly.
+
+## ConfigInterface
+
+The `ConfigInterface` provides all the configuration values needed by the API client.
+
+### Interface Definition
+
+```php src/Interfaces/ConfigInterface.php
+interface ConfigInterface
+{
+    public function getUrl(): string;
+    public function getToken(): string;
+    public function getTenantId(): string;
+    public function getTransactionPin(): string;
+    public function getAccountReference(): string;
+    public function getSenderName(): string;
+    public function getSenderPhone(): string;
+    public function getSenderAddress(): string;
+}
+```
+
+### Required Methods
+
+<ResponseField name="getUrl" type="string" required>
+  Returns the base URL for the Payaza API (e.g., `https://api.payaza.africa`)
+</ResponseField>
+
+<ResponseField name="getToken" type="string" required>
+  Returns your API authentication token
+</ResponseField>
+
+<ResponseField name="getTenantId" type="string" required>
+  Returns your tenant identifier
+</ResponseField>
+
+<ResponseField name="getTransactionPin" type="string" required>
+  Returns your transaction PIN for authorizing payouts
+</ResponseField>
+
+<ResponseField name="getAccountReference" type="string" required>
+  Returns your account reference
+</ResponseField>
+
+<ResponseField name="getSenderName" type="string" required>
+  Returns the sender's full name for all transactions
+</ResponseField>
+
+<ResponseField name="getSenderPhone" type="string" required>
+  Returns the sender's phone number
+</ResponseField>
+
+<ResponseField name="getSenderAddress" type="string" required>
+  Returns the sender's address
+</ResponseField>
+
+### Implementation Examples
+
+<Tabs>
+  <Tab title="Simple Class">
+    A straightforward implementation using class properties:
+
+    ```php
+    use BrokeYourBike\Payaza\Interfaces\ConfigInterface;
+
+    class PayazaConfig implements ConfigInterface
+    {
+        public function __construct(
+            private string $url,
+            private string $token,
+            private string $tenantId,
+            private string $transactionPin,
+            private string $accountReference,
+            private string $senderName,
+            private string $senderPhone,
+            private string $senderAddress
+        ) {}
+
+        public function getUrl(): string
+        {
+            return $this->url;
+        }
+
+        public function getToken(): string
+        {
+            return $this->token;
+        }
+
+        public function getTenantId(): string
+        {
+            return $this->tenantId;
+        }
+
+        public function getTransactionPin(): string
+        {
+            return $this->transactionPin;
+        }
+
+        public function getAccountReference(): string
+        {
+            return $this->accountReference;
+        }
+
+        public function getSenderName(): string
+        {
+            return $this->senderName;
+        }
+
+        public function getSenderPhone(): string
+        {
+            return $this->senderPhone;
+        }
+
+        public function getSenderAddress(): string
+        {
+            return $this->senderAddress;
+        }
+    }
+
+    // Usage
+    $config = new PayazaConfig(
+        url: 'https://api.payaza.africa',
+        token: 'your-api-token',
+        tenantId: 'your-tenant-id',
+        transactionPin: 'your-pin',
+        accountReference: 'your-account-ref',
+        senderName: 'John Doe',
+        senderPhone: '+2341234567890',
+        senderAddress: '123 Main Street, Lagos'
+    );
+    ```
+  </Tab>
+
+  <Tab title="Environment Variables">
+    Load configuration from environment variables for better security:
+
+    ```php
+    use BrokeYourBike\Payaza\Interfaces\ConfigInterface;
+
+    class EnvPayazaConfig implements ConfigInterface
+    {
+        public function getUrl(): string
+        {
+            return getenv('PAYAZA_URL') ?: 'https://api.payaza.africa';
+        }
+
+        public function getToken(): string
+        {
+            $token = getenv('PAYAZA_TOKEN');
+            if (!$token) {
+                throw new \RuntimeException('PAYAZA_TOKEN not set');
+            }
+            return $token;
+        }
+
+        public function getTenantId(): string
+        {
+            $tenantId = getenv('PAYAZA_TENANT_ID');
+            if (!$tenantId) {
+                throw new \RuntimeException('PAYAZA_TENANT_ID not set');
+            }
+            return $tenantId;
+        }
+
+        public function getTransactionPin(): string
+        {
+            $pin = getenv('PAYAZA_TRANSACTION_PIN');
+            if (!$pin) {
+                throw new \RuntimeException('PAYAZA_TRANSACTION_PIN not set');
+            }
+            return $pin;
+        }
+
+        public function getAccountReference(): string
+        {
+            $ref = getenv('PAYAZA_ACCOUNT_REFERENCE');
+            if (!$ref) {
+                throw new \RuntimeException('PAYAZA_ACCOUNT_REFERENCE not set');
+            }
+            return $ref;
+        }
+
+        public function getSenderName(): string
+        {
+            return getenv('PAYAZA_SENDER_NAME') ?: 'Default Sender';
+        }
+
+        public function getSenderPhone(): string
+        {
+            return getenv('PAYAZA_SENDER_PHONE') ?: '+234000000000';
+        }
+
+        public function getSenderAddress(): string
+        {
+            return getenv('PAYAZA_SENDER_ADDRESS') ?: 'Unknown Address';
+        }
+    }
+
+    // Usage with .env file
+    $config = new EnvPayazaConfig();
+    ```
+
+    Example `.env` file:
+
+    ```bash
+    PAYAZA_URL=https://api.payaza.africa
+    PAYAZA_TOKEN=your-secret-token
+    PAYAZA_TENANT_ID=your-tenant-id
+    PAYAZA_TRANSACTION_PIN=your-pin
+    PAYAZA_ACCOUNT_REFERENCE=your-account-ref
+    PAYAZA_SENDER_NAME=Your Company Name
+    PAYAZA_SENDER_PHONE=+2341234567890
+    PAYAZA_SENDER_ADDRESS=123 Business Street, Lagos, Nigeria
+    ```
+  </Tab>
+
+  <Tab title="Laravel Config">
+    Integrate with Laravel's configuration system:
+
+    ```php
+    use BrokeYourBike\Payaza\Interfaces\ConfigInterface;
+
+    class LaravelPayazaConfig implements ConfigInterface
+    {
+        public function getUrl(): string
+        {
+            return config('payaza.url', 'https://api.payaza.africa');
+        }
+
+        public function getToken(): string
+        {
+            return config('payaza.token');
+        }
+
+        public function getTenantId(): string
+        {
+            return config('payaza.tenant_id');
+        }
+
+        public function getTransactionPin(): string
+        {
+            return config('payaza.transaction_pin');
+        }
+
+        public function getAccountReference(): string
+        {
+            return config('payaza.account_reference');
+        }
+
+        public function getSenderName(): string
+        {
+            return config('payaza.sender.name');
+        }
+
+        public function getSenderPhone(): string
+        {
+            return config('payaza.sender.phone');
+        }
+
+        public function getSenderAddress(): string
+        {
+            return config('payaza.sender.address');
+        }
+    }
+    ```
+
+    Create `config/payaza.php`:
+
+    ```php
+    return [
+        'url' => env('PAYAZA_URL', 'https://api.payaza.africa'),
+        'token' => env('PAYAZA_TOKEN'),
+        'tenant_id' => env('PAYAZA_TENANT_ID'),
+        'transaction_pin' => env('PAYAZA_TRANSACTION_PIN'),
+        'account_reference' => env('PAYAZA_ACCOUNT_REFERENCE'),
+        'sender' => [
+            'name' => env('PAYAZA_SENDER_NAME'),
+            'phone' => env('PAYAZA_SENDER_PHONE'),
+            'address' => env('PAYAZA_SENDER_ADDRESS'),
+        ],
+    ];
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+  Never hardcode sensitive credentials like tokens and PINs in your source code. Always use environment variables or secure configuration management.
+</Warning>
+
+## TransactionInterface
+
+The `TransactionInterface` represents a payout transaction with recipient details.
+
+### Interface Definition
+
+```php src/Interfaces/TransactionInterface.php
+interface TransactionInterface
+{
+    public function getReference(): string;
+    public function getAmount(): float;
+    public function getBankAccount(): string;
+    public function getBankCode(): string;
+    public function getRecipientName(): string;
+}
+```
+
+### Required Methods
+
+<ResponseField name="getReference" type="string" required>
+  Returns a unique reference for the transaction. Used for tracking and status checks.
+</ResponseField>
+
+<ResponseField name="getAmount" type="float" required>
+  Returns the transaction amount in the currency of your account
+</ResponseField>
+
+<ResponseField name="getBankAccount" type="string" required>
+  Returns the recipient's bank account number (NUBAN format)
+</ResponseField>
+
+<ResponseField name="getBankCode" type="string" required>
+  Returns the recipient's bank code (e.g., "058" for GTBank)
+</ResponseField>
+
+<ResponseField name="getRecipientName" type="string" required>
+  Returns the recipient's full name as registered with their bank
+</ResponseField>
+
+### Implementation Examples
+
+<Tabs>
+  <Tab title="Simple DTO">
+    A data transfer object implementation:
+
+    ```php
+    use BrokeYourBike\Payaza\Interfaces\TransactionInterface;
+
+    class PayoutTransaction implements TransactionInterface
+    {
+        public function __construct(
+            private string $reference,
+            private float $amount,
+            private string $bankAccount,
+            private string $bankCode,
+            private string $recipientName
+        ) {}
+
+        public function getReference(): string
+        {
+            return $this->reference;
+        }
+
+        public function getAmount(): float
+        {
+            return $this->amount;
+        }
+
+        public function getBankAccount(): string
+        {
+            return $this->bankAccount;
+        }
+
+        public function getBankCode(): string
+        {
+            return $this->bankCode;
+        }
+
+        public function getRecipientName(): string
+        {
+            return $this->recipientName;
+        }
+    }
+
+    // Usage
+    $transaction = new PayoutTransaction(
+        reference: 'TXN-' . uniqid(),
+        amount: 10000.00,
+        bankAccount: '0123456789',
+        bankCode: '058',
+        recipientName: 'Jane Doe'
+    );
+    ```
+  </Tab>
+
+  <Tab title="Eloquent Model">
+    Implement the interface on your database model:
+
+    ```php
+    use Illuminate\Database\Eloquent\Model;
+    use BrokeYourBike\Payaza\Interfaces\TransactionInterface;
+
+    class Payout extends Model implements TransactionInterface
+    {
+        protected $fillable = [
+            'reference',
+            'amount',
+            'bank_account',
+            'bank_code',
+            'recipient_name',
+            'status',
+        ];
+
+        protected $casts = [
+            'amount' => 'float',
+        ];
+
+        public function getReference(): string
+        {
+            return $this->reference;
+        }
+
+        public function getAmount(): float
+        {
+            return $this->amount;
+        }
+
+        public function getBankAccount(): string
+        {
+            return $this->bank_account;
+        }
+
+        public function getBankCode(): string
+        {
+            return $this->bank_code;
+        }
+
+        public function getRecipientName(): string
+        {
+            return $this->recipient_name;
+        }
+    }
+
+    // Usage
+    $payout = Payout::create([
+        'reference' => 'TXN-' . time(),
+        'amount' => 25000.00,
+        'bank_account' => '0123456789',
+        'bank_code' => '058',
+        'recipient_name' => 'Alice Johnson',
+    ]);
+
+    $response = $client->payout($payout);
+    ```
+  </Tab>
+
+  <Tab title="With Validation">
+    Add validation logic to your implementation:
+
+    ```php
+    use BrokeYourBike\Payaza\Interfaces\TransactionInterface;
+
+    class ValidatedPayout implements TransactionInterface
+    {
+        private string $reference;
+        private float $amount;
+        private string $bankAccount;
+        private string $bankCode;
+        private string $recipientName;
+
+        public function __construct(
+            string $reference,
+            float $amount,
+            string $bankAccount,
+            string $bankCode,
+            string $recipientName
+        ) {
+            $this->setReference($reference);
+            $this->setAmount($amount);
+            $this->setBankAccount($bankAccount);
+            $this->setBankCode($bankCode);
+            $this->setRecipientName($recipientName);
+        }
+
+        private function setReference(string $reference): void
+        {
+            if (empty($reference)) {
+                throw new \InvalidArgumentException('Reference cannot be empty');
+            }
+            $this->reference = $reference;
+        }
+
+        private function setAmount(float $amount): void
+        {
+            if ($amount <= 0) {
+                throw new \InvalidArgumentException('Amount must be greater than zero');
+            }
+            $this->amount = $amount;
+        }
+
+        private function setBankAccount(string $bankAccount): void
+        {
+            if (!preg_match('/^\d{10}$/', $bankAccount)) {
+                throw new \InvalidArgumentException('Bank account must be 10 digits');
+            }
+            $this->bankAccount = $bankAccount;
+        }
+
+        private function setBankCode(string $bankCode): void
+        {
+            if (!preg_match('/^\d{3}$/', $bankCode)) {
+                throw new \InvalidArgumentException('Bank code must be 3 digits');
+            }
+            $this->bankCode = $bankCode;
+        }
+
+        private function setRecipientName(string $recipientName): void
+        {
+            if (empty($recipientName)) {
+                throw new \InvalidArgumentException('Recipient name cannot be empty');
+            }
+            $this->recipientName = $recipientName;
+        }
+
+        public function getReference(): string
+        {
+            return $this->reference;
+        }
+
+        public function getAmount(): float
+        {
+            return $this->amount;
+        }
+
+        public function getBankAccount(): string
+        {
+            return $this->bankAccount;
+        }
+
+        public function getBankCode(): string
+        {
+            return $this->bankCode;
+        }
+
+        public function getRecipientName(): string
+        {
+            return $this->recipientName;
+        }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+  Generate unique references using a combination of timestamp and random string to avoid collisions.
+</Tip>
+
+## Complete Working Example
+
+Here's a full example that ties everything together:
+
+```php
+use BrokeYourBike\Payaza\Client;
+use BrokeYourBike\Payaza\Interfaces\ConfigInterface;
+use BrokeYourBike\Payaza\Interfaces\TransactionInterface;
+use GuzzleHttp\Client as HttpClient;
+
+// Config implementation
+class MyPayazaConfig implements ConfigInterface
+{
+    public function getUrl(): string
+    {
+        return getenv('PAYAZA_URL');
+    }
+
+    public function getToken(): string
+    {
+        return getenv('PAYAZA_TOKEN');
+    }
+
+    public function getTenantId(): string
+    {
+        return getenv('PAYAZA_TENANT_ID');
+    }
+
+    public function getTransactionPin(): string
+    {
+        return getenv('PAYAZA_TRANSACTION_PIN');
+    }
+
+    public function getAccountReference(): string
+    {
+        return getenv('PAYAZA_ACCOUNT_REFERENCE');
+    }
+
+    public function getSenderName(): string
+    {
+        return getenv('PAYAZA_SENDER_NAME');
+    }
+
+    public function getSenderPhone(): string
+    {
+        return getenv('PAYAZA_SENDER_PHONE');
+    }
+
+    public function getSenderAddress(): string
+    {
+        return getenv('PAYAZA_SENDER_ADDRESS');
+    }
+}
+
+// Transaction implementation
+class MyPayout implements TransactionInterface
+{
+    public function __construct(
+        private string $reference,
+        private float $amount,
+        private string $bankAccount,
+        private string $bankCode,
+        private string $recipientName
+    ) {}
+
+    public function getReference(): string
+    {
+        return $this->reference;
+    }
+
+    public function getAmount(): float
+    {
+        return $this->amount;
+    }
+
+    public function getBankAccount(): string
+    {
+        return $this->bankAccount;
+    }
+
+    public function getBankCode(): string
+    {
+        return $this->bankCode;
+    }
+
+    public function getRecipientName(): string
+    {
+        return $this->recipientName;
+    }
+}
+
+// Initialize client
+$config = new MyPayazaConfig();
+$httpClient = new HttpClient();
+$client = new Client($config, $httpClient);
+
+// Create and execute payout
+$payout = new MyPayout(
+    reference: 'TXN-' . bin2hex(random_bytes(8)),
+    amount: 15000.00,
+    bankAccount: '0123456789',
+    bankCode: '058',
+    recipientName: 'John Smith'
+);
+
+try {
+    $response = $client->payout($payout);
+    echo "Success! Status: {$response->transaction_status}\n";
+} catch (\Exception $e) {
+    echo "Error: {$e->getMessage()}\n";
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Secure Credentials" icon="lock">
+    Store API tokens and PINs in environment variables, never in source code.
+  </Card>
+  <Card title="Validate Input" icon="shield-check">
+    Validate all transaction data before passing to the API client.
+  </Card>
+  <Card title="Use Type Hints" icon="code">
+    Leverage PHP's type system to catch errors early.
+  </Card>
+  <Card title="Generate Unique References" icon="fingerprint">
+    Use UUIDs or timestamp-based references to ensure uniqueness.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Create Your First Payout" icon="rocket" href="/guides/creating-payouts">
+    Use your implementations to send a payout
+  </Card>
+  <Card title="API Reference" icon="book" href="/api-reference/client">
+    Explore the complete API reference
+  </Card>
+</CardGroup>

@@ -1,0 +1,160 @@
+---
+title: TransactionInterface
+description: Transaction data interface for payout operations
+---
+
+The `TransactionInterface` defines the required methods that must be implemented to create a payout transaction. Your transaction class must implement this interface to provide the necessary payout details.
+
+## Interface Definition
+
+```php
+namespace BrokeYourBike\Payaza\Interfaces;
+
+interface TransactionInterface
+{
+    public function getReference(): string;
+    public function getAmount(): float;
+    public function getBankAccount(): string;
+    public function getBankCode(): string;
+    public function getRecipientName(): string;
+}
+```
+
+## Required Methods
+
+### getReference()
+
+Returns the unique transaction reference identifier.
+
+```php
+public function getReference(): string
+```
+
+<ParamField path="return" type="string">
+  A unique reference for this transaction. Used for tracking and status queries. This value is used as both the narration and transaction reference in the API request.
+</ParamField>
+
+### getAmount()
+
+Returns the payout amount.
+
+```php
+public function getAmount(): float
+```
+
+<ParamField path="return" type="float">
+  The amount to be paid out to the recipient. This is used for both the total payout amount and the credit amount for the beneficiary.
+</ParamField>
+
+### getBankAccount()
+
+Returns the recipient's bank account number.
+
+```php
+public function getBankAccount(): string
+```
+
+<ParamField path="return" type="string">
+  The recipient's NUBAN (Nigerian Uniform Bank Account Number) - a 10-digit account number.
+</ParamField>
+
+### getBankCode()
+
+Returns the recipient's bank code.
+
+```php
+public function getBankCode(): string
+```
+
+<ParamField path="return" type="string">
+  The Nigerian bank code (e.g., '058' for GTBank, '033' for UBA). See the Payaza documentation for a complete list of supported bank codes.
+</ParamField>
+
+### getRecipientName()
+
+Returns the recipient's account name.
+
+```php
+public function getRecipientName(): string
+```
+
+<ParamField path="return" type="string">
+  The name on the recipient's bank account.
+</ParamField>
+
+## Example Implementation
+
+```php
+use BrokeYourBike\Payaza\Interfaces\TransactionInterface;
+
+class PayoutTransaction implements TransactionInterface
+{
+    public function __construct(
+        private string $reference,
+        private float $amount,
+        private string $bankAccount,
+        private string $bankCode,
+        private string $recipientName,
+    ) {}
+
+    public function getReference(): string
+    {
+        return $this->reference;
+    }
+
+    public function getAmount(): float
+    {
+        return $this->amount;
+    }
+
+    public function getBankAccount(): string
+    {
+        return $this->bankAccount;
+    }
+
+    public function getBankCode(): string
+    {
+        return $this->bankCode;
+    }
+
+    public function getRecipientName(): string
+    {
+        return $this->recipientName;
+    }
+}
+```
+
+## Usage with Client
+
+```php
+use BrokeYourBike\Payaza\Client;
+
+$transaction = new PayoutTransaction(
+    reference: 'TXN-' . uniqid(),
+    amount: 5000.00,
+    bankAccount: '0123456789',
+    bankCode: '058', // GTBank
+    recipientName: 'John Doe'
+);
+
+$response = $client->payout($transaction);
+```
+
+## Source Model Support
+
+If your transaction class also implements `BrokeYourBike\HasSourceModel\SourceModelInterface`, the client will automatically track the source model with the HTTP request for logging and debugging purposes.
+
+```php
+use BrokeYourBike\Payaza\Interfaces\TransactionInterface;
+use BrokeYourBike\HasSourceModel\SourceModelInterface;
+
+class PayoutTransaction implements TransactionInterface, SourceModelInterface
+{
+    // ... interface methods ...
+}
+```
+
+## Related
+
+- [Client](/api-reference/client) - Using transactions with the API client
+- [PayoutResponse](/api-reference/responses/payout-response) - Response format for payout requests

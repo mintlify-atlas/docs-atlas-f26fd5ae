@@ -1,0 +1,202 @@
+---
+title: ConfigInterface
+description: Configuration interface for the Payaza API client
+---
+
+The `ConfigInterface` defines the required configuration methods that must be implemented to use the Payaza API client. Your configuration class must implement this interface to provide authentication credentials and merchant details.
+
+## Interface Definition
+
+```php
+namespace BrokeYourBike\Payaza\Interfaces;
+
+interface ConfigInterface
+{
+    public function getUrl(): string;
+    public function getToken(): string;
+    public function getTenantId(): string;
+    public function getTransactionPin(): string;
+    public function getAccountReference(): string;
+    public function getSenderName(): string;
+    public function getSenderPhone(): string;
+    public function getSenderAddress(): string;
+}
+```
+
+## Required Methods
+
+### getUrl()
+
+Returns the base URL for the Payaza API.
+
+```php
+public function getUrl(): string
+```
+
+<ParamField path="return" type="string">
+  The base URL for API requests (e.g., `https://api.payaza.africa`)
+</ParamField>
+
+### getToken()
+
+Returns the API authentication token.
+
+```php
+public function getToken(): string
+```
+
+<ParamField path="return" type="string">
+  Your Payaza API token. This will be base64-encoded and used in the Authorization header.
+</ParamField>
+
+### getTenantId()
+
+Returns the tenant identifier for multi-tenant API access.
+
+```php
+public function getTenantId(): string
+```
+
+<ParamField path="return" type="string">
+  Your tenant ID, sent in the `X-TenantID` header.
+</ParamField>
+
+### getTransactionPin()
+
+Returns the transaction PIN required for payout operations.
+
+```php
+public function getTransactionPin(): string
+```
+
+<ParamField path="return" type="string">
+  Your transaction PIN for authorizing payouts.
+</ParamField>
+
+### getAccountReference()
+
+Returns the merchant account reference.
+
+```php
+public function getAccountReference(): string
+```
+
+<ParamField path="return" type="string">
+  Your merchant account reference identifier.
+</ParamField>
+
+### getSenderName()
+
+Returns the sender's name for payout transactions.
+
+```php
+public function getSenderName(): string
+```
+
+<ParamField path="return" type="string">
+  The name of the sender (merchant) initiating the payout.
+</ParamField>
+
+### getSenderPhone()
+
+Returns the sender's phone number.
+
+```php
+public function getSenderPhone(): string
+```
+
+<ParamField path="return" type="string">
+  The phone number of the sender (merchant).
+</ParamField>
+
+### getSenderAddress()
+
+Returns the sender's address.
+
+```php
+public function getSenderAddress(): string
+```
+
+<ParamField path="return" type="string">
+  The physical address of the sender (merchant).
+</ParamField>
+
+## Example Implementation
+
+```php
+use BrokeYourBike\Payaza\Interfaces\ConfigInterface;
+
+class PayazaConfig implements ConfigInterface
+{
+    public function __construct(
+        private string $url,
+        private string $token,
+        private string $tenantId,
+        private string $transactionPin,
+        private string $accountReference,
+        private string $senderName,
+        private string $senderPhone,
+        private string $senderAddress,
+    ) {}
+
+    public function getUrl(): string
+    {
+        return $this->url;
+    }
+
+    public function getToken(): string
+    {
+        return $this->token;
+    }
+
+    public function getTenantId(): string
+    {
+        return $this->tenantId;
+    }
+
+    public function getTransactionPin(): string
+    {
+        return $this->transactionPin;
+    }
+
+    public function getAccountReference(): string
+    {
+        return $this->accountReference;
+    }
+
+    public function getSenderName(): string
+    {
+        return $this->senderName;
+    }
+
+    public function getSenderPhone(): string
+    {
+        return $this->senderPhone;
+    }
+
+    public function getSenderAddress(): string
+    {
+        return $this->senderAddress;
+    }
+}
+```
+
+## Usage with Client
+
+```php
+use BrokeYourBike\Payaza\Client;
+use GuzzleHttp\Client as GuzzleClient;
+
+$config = new PayazaConfig(
+    url: 'https://api.payaza.africa',
+    token: 'your-api-token',
+    tenantId: 'your-tenant-id',
+    transactionPin: 'your-transaction-pin',
+    accountReference: 'your-account-reference',
+    senderName: 'Your Business Name',
+    senderPhone: '+2341234567890',
+    senderAddress: '123 Business Street, Lagos, Nigeria'
+);
+
+$client = new Client($config, new GuzzleClient());
+```

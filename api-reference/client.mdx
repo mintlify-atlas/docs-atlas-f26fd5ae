@@ -1,0 +1,135 @@
+---
+title: Client
+description: Main API client for interacting with the Payaza API
+---
+
+The `Client` class is the primary interface for making requests to the Payaza API. It handles authentication, request formatting, and response parsing.
+
+## Constructor
+
+Creates a new instance of the Payaza API client.
+
+```php
+public function __construct(
+    ConfigInterface $config, 
+    ClientInterface $httpClient
+)
+```
+
+<ParamField path="config" type="ConfigInterface" required>
+  Configuration object containing API credentials and settings. Must implement the [ConfigInterface](/api-reference/interfaces/config-interface).
+</ParamField>
+
+<ParamField path="httpClient" type="GuzzleHttp\ClientInterface" required>
+  Guzzle HTTP client instance for making API requests.
+</ParamField>
+
+### Example
+
+```php
+use BrokeYourBike\Payaza\Client;
+use GuzzleHttp\Client as GuzzleClient;
+
+$config = new YourConfigImplementation();
+$httpClient = new GuzzleClient();
+
+$client = new Client($config, $httpClient);
+```
+
+## Methods
+
+### getConfig()
+
+Returns the configuration object used by the client.
+
+```php
+public function getConfig(): ConfigInterface
+```
+
+**Returns:** `ConfigInterface` - The configuration object
+
+### payout()
+
+Initiates a payout transaction to a Nigerian bank account using NUBAN.
+
+```php
+public function payout(TransactionInterface $transaction): PayoutResponse
+```
+
+<ParamField path="transaction" type="TransactionInterface" required>
+  Transaction object containing payout details. Must implement the [TransactionInterface](/api-reference/interfaces/transaction-interface).
+</ParamField>
+
+**Returns:** [PayoutResponse](/api-reference/responses/payout-response) - The API response containing transaction status
+
+#### Example
+
+```php
+use BrokeYourBike\Payaza\Client;
+
+$transaction = new YourTransaction(
+    reference: 'TXN-123456',
+    amount: 5000.00,
+    bankAccount: '0123456789',
+    bankCode: '058',
+    recipientName: 'John Doe'
+);
+
+$response = $client->payout($transaction);
+
+if ($response->response_code === '00') {
+    echo "Payout initiated: {$response->transaction_status}";
+}
+```
+
+#### Implementation Details
+
+The method:
+- Encodes the API token using base64
+- Sends a POST request to `/payout-receptor/payout`
+- Includes sender information from the config
+- Uses the transaction type 'nuban' for Nigerian bank transfers
+- Supports source model tracking if the transaction implements `SourceModelInterface`
+
+### payoutStatus()
+
+Checks the status of a previously initiated payout transaction.
+
+```php
+public function payoutStatus(string $reference): PayoutStatusResponse
+```
+
+<ParamField path="reference" type="string" required>
+  The unique transaction reference used when initiating the payout.
+</ParamField>
+
+**Returns:** [PayoutStatusResponse](/api-reference/responses/payout-status-response) - The API response containing current transaction status
+
+#### Example
+
+```php
+use BrokeYourBike\Payaza\Client;
+use BrokeYourBike\Payaza\Enums\TransactionStatusEnum;
+
+$response = $client->payoutStatus('TXN-123456');
+
+if ($response->transaction_status === TransactionStatusEnum::NIP_SUCCESS->value) {
+    echo "Transaction completed successfully";
+} elseif ($response->transaction_status === TransactionStatusEnum::NIP_PENDING->value) {
+    echo "Transaction still processing";
+}
+```
+
+#### Implementation Details
+
+The method:
+- Encodes the API token using base64
+- Sends a GET request to `/payaza-account/api/v1/mainaccounts/merchant/transaction/{reference}`
+- Returns the current status and response details
+
+## Related Interfaces
+
+- [ConfigInterface](/api-reference/interfaces/config-interface) - Configuration requirements
+- [TransactionInterface](/api-reference/interfaces/transaction-interface) - Transaction data requirements
+- [PayoutResponse](/api-reference/responses/payout-response) - Payout response format
+- [PayoutStatusResponse](/api-reference/responses/payout-status-response) - Status response format
